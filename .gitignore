@@ -11,4 +11,4 @@ EWARM/*
 Firmware/*
 MDK-ARM/*
 Utilities/*
-!Utilities/debug_tools/*
+!Utilities/debug_tools
