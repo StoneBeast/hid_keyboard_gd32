@@ -112,7 +112,7 @@ static uint8_t is_ghosting(uint8_t key_code)
 
         uint8_t result = 0;
         uint8_t w_count = 0;
-#if 1
+        
         for (uint8_t i = 0; i < original_key_count; i++)
         {
             result = (original_key_code_arr[i] < key_code ? key_code - original_key_code_arr[i] : original_key_code_arr[i] - key_code);
@@ -126,13 +126,6 @@ static uint8_t is_ghosting(uint8_t key_code)
                 }
             }
         }
-#else   // 0
-        for (uint8_t i = 0; i < original_key_count; i++)
-        {
-            //  判断是否存在同行按键
-
-        }
-#endif  // 0
         return 0;
     }
 }
