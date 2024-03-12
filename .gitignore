@@ -1,0 +1,14 @@
+.vscode/*
+
+# Local History for Visual Studio Code
+.history/
+
+# Built Visual Studio Code Extensions
+*.vsix
+
+# Keil MDK
+EWARM/*
+Firmware/*
+MDK-ARM/*
+Utilities/*
+!Utilities/debug_tools/*
