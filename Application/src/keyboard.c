@@ -40,6 +40,77 @@ static uint8_t ghosting_flag = 0;
 static uint8_t original_key_code_arr[15] = {0};
 static uint8_t original_key_count = 0;
 
+static uint8_t add_to_original_key(uint8_t orig_key_code);
+static void reset_original_key(void);
+static void add_to_temp_key_buffer(uint8_t key_code);
+static uint8_t is_ghosting(uint8_t key_code);
+static void handle_input_key(uint8_t row, uint8_t col);
+static void handle_keyboard_input(uint8_t row_inx, uint16_t col_data);
+
+/*!
+    \brief      scan the keyboard matrix
+    \param[in]  none
+    \param[out] none
+    \retval     none
+*/
+void scan_keyboard(void)
+{
+
+    uint16_t col_data = 0x0000;
+
+    //  GPIOA_PINx(1..8) set
+    gpio_port_write(GPIOA, (gpio_output_port_get(GPIOA) | 0x01fe));
+
+    while (1)
+    {
+        uint8_t row = 0;
+        delay_ms(20);
+        //  reset Special key
+        for (row = 1; row <= 8; row++)
+        {
+            //  scan rowx(1..8)
+            gpio_bit_reset(GPIOA, GPIO_PIN(row));
+
+            col_data = gpio_input_port_get(GPIOB);
+            handle_keyboard_input(row, col_data);
+
+            //  set current row for scanning next row
+            gpio_bit_set(GPIOA, GPIO_PIN(row));
+        }
+
+        //  产生冲突之后，松开直到所有按键才能恢复键盘功能
+        if (normal_key_count == 0)
+        {
+            ghosting_flag = 0;
+            reset_original_key();
+        }
+
+        //  if buffer changed, send new one
+        //  只有在按键发生变化之后才会修改key buffer，并发送key buffer
+        //  只有在最后发送时，使用的才是key buffer,而修改等操作都是在temp_key_buffer上进行的。
+        if (buffer_cmp(temp_key_buffer) == 0)
+        {
+            // debug_port_num_code(0x00, GPIO_PIN_6);
+            if (ghosting_flag)
+            {
+                memset(temp_key_buffer, 0, 8);
+            }
+            else
+            {
+                reset_original_key();
+            }
+
+            memcpy(get_key_buffer(), temp_key_buffer, 8);
+
+            usbd_hid_report_send(&usbhs_core_dev, get_key_buffer(), 8U);
+        }
+
+        //  reset temp_key_buffer and normal_key_count
+        memset(temp_key_buffer, 0, 8);
+        normal_key_count = 0;
+    }
+}
+
 static uint8_t add_to_original_key(uint8_t orig_key_code)
 {
     if (original_key_count < 12)
@@ -110,20 +181,40 @@ static uint8_t is_ghosting(uint8_t key_code)
             key_code |= 0x70;
         }
 
-        uint8_t result = 0;
-        uint8_t w_count = 0;
+        // uint8_t result = 0;
+        // uint8_t w_count = 0;
+
+        /*
+            由于扫描顺序的原因，可能出现非法键的位置只可能是矩形的下面一行，
+            因此首先需要判断已按下的按键中是否有同列的，如果有同列的，再判断这个同列
+            的按键是否有同行按键即可，注意：可能不止有一个同列按键，因此每一个都需要检查。
+        */
+        uint8_t col_code = (key_code & 0xf0);
         
         for (uint8_t i = 0; i < original_key_count; i++)
         {
-            result = (original_key_code_arr[i] < key_code ? key_code - original_key_code_arr[i] : original_key_code_arr[i] - key_code);
+            // result = (original_key_code_arr[i] < key_code ? key_code - original_key_code_arr[i] : original_key_code_arr[i] - key_code);
 
-            if (result == 0x01 || result == 0x10 || result == 0x11 || result == 0x0f)
+            // if (result == 0x01 || result == 0x10 || result == 0x11 || result == 0x0f)
+            // {
+            //     w_count ++;
+            //     if (w_count >= 2)
+            //     {
+            //         return 1;
+            //     }
+            // }
+            if ((original_key_code_arr[i] & col_code) == col_code)
             {
-                w_count ++;
-                if (w_count >= 2)
+                // 发现同列按键, 判断该按键是否有同行按键
+                for (uint8_t j = 0; j < original_key_count; j++)
                 {
-                    return 1;
+                    if ((original_key_code_arr[i]^original_key_code_arr[j]) < 0x10)
+                    {
+                        return 1;
+                    }
                 }
+                
+
             }
         }
         return 0;
@@ -206,71 +297,5 @@ static void handle_keyboard_input(uint8_t row_inx, uint16_t col_data)
             temp_data >>= 1;
         }
     }
-}
-
-
-/*!
-    \brief      scan the keyboard matrix
-    \param[in]  none
-    \param[out] none
-    \retval     none
-*/
-void scan_keyboard(void)
-{
-   
-    uint16_t col_data = 0x0000;
-
-    //  GPIOA_PINx(1..8) set
-    gpio_port_write(GPIOA, (gpio_output_port_get(GPIOA) | 0x01fe));
-
-    while (1)
-    {
-        uint8_t row = 0;
-        delay_ms(20);
-        //  reset Special key
-        for (row = 1; row <= 8; row++)
-        {
-            //  scan rowx(1..8)
-            gpio_bit_reset(GPIOA, GPIO_PIN(row));
-
-            col_data = gpio_input_port_get(GPIOB);
-            handle_keyboard_input(row, col_data);
-
-            //  set current row for scanning next row
-            gpio_bit_set(GPIOA, GPIO_PIN(row));
-        }
-
-        //  产生冲突之后，松开直到所有按键才能恢复键盘功能
-        if (normal_key_count == 0)
-        {
-            ghosting_flag = 0;
-            reset_original_key();
-        }
-
-        //  if buffer changed, send new one
-        //  只有在按键发生变化之后才会修改key buffer，并发送key buffer
-        //  只有在最后发送时，使用的才是key buffer,而修改等操作都是在temp_key_buffer上进行的。
-        if (buffer_cmp(temp_key_buffer) == 0)
-        {
-            // debug_port_num_code(0x00, GPIO_PIN_6);
-            if (ghosting_flag)
-            {
-                memset(temp_key_buffer, 0, 8);
-            }
-            else
-            {
-                reset_original_key();
-            }
-
-            memcpy(get_key_buffer(), temp_key_buffer, 8);
-
-            usbd_hid_report_send(&usbhs_core_dev, get_key_buffer(), 8U);
-        }
-
-        //  reset temp_key_buffer and normal_key_count
-        memset(temp_key_buffer, 0, 8);
-        normal_key_count = 0;
-    }
-
 }
 
