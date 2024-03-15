@@ -1,8 +1,3 @@
-/*
-    使用逐行扫描法，(这里使所有接收引脚设为上拉输入，所有输出引脚默认输出为高电平)
-    即每行输出逐一输出低电平，然后读取所有输入引脚的数据，若发现有低电平的，则说明该行该列有被按下的按键。
-*/
-
 #include "keyboard.h"
 #include "key_gpio.h"
 #include <stdint.h>
@@ -49,12 +44,13 @@ void scan_keyboard(void)
         uint16_t col_data = 0x0000;
         gs_ghosting_flag = FALSE;
 
-        //  这里增加判断，当本轮扫描出现冲突时，停止扫描以提高效率，但是每次循环
-        //  开始前，会重置标志位，所以不影响下一次扫描
+        /*
+            这里增加判断，当本轮扫描出现冲突时，停止扫描以提高效率，但是每次循环
+            开始前，会重置标志位，所以不影响下一次扫描
+        */
         for (uint8_t row_inx = 1; (row_inx < 9) && (gs_ghosting_flag==FALSE); row_inx++)
         {
             //  逐行扫描
-            // gpio_port_write(GPIOA, (gpio_output_port_get(GPIOA)|row_data) & (~(0x0001<<row_inx)));
             gpio_bit_reset(GPIOA, GPIO_PIN(row_inx));
             //  获取当前的col输入
             col_data = gpio_input_port_get(GPIOB);
@@ -78,8 +74,6 @@ void scan_keyboard(void)
         gs_temp_key_buffer.normal_key_count = 0;
     }
 }
-
-// TODO: 修补之前的问题，可以尝试改变冲突就不扫描的方法，冲突仍然扫描，但是不发送
 
 /********************************************** 处理扫描的行数据 *************************************************/
 
