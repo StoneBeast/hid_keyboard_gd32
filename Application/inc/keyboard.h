@@ -131,8 +131,6 @@
   (输出)
 */
 
-// TODO: GPIO_A_0 未知错误，初始化后无法加入矩阵进行扫描，使用GPIO_A_8代替
-
 void scan_keyboard(void);
 
 #endif //   KEYBOARD_H

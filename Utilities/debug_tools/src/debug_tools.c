@@ -106,7 +106,7 @@ void debug_port_num(uint8_t n, uint32_t GPIOF_PIN)
     }
 }
 
-void debug_port_num_code(uint8_t data, uint32_t GPIOF_PIN)
+void debug_port_num_code(uint16_t data, uint32_t GPIOF_PIN)
 {
     // uint8_t p = data >> 4;
 
@@ -114,7 +114,7 @@ void debug_port_num_code(uint8_t data, uint32_t GPIOF_PIN)
     // delay_ms(5);
     // debug_port_num(data & 0x0f, GPIOF_PIN);
     delay_us(150);
-    for (uint8_t i = 0; i < 8; i++)
+    for (uint8_t i = 0; i < 16; i++)
     {
         gpio_bit_set(DEBUG_PORT, GPIOF_PIN);
         delay_us(50);
