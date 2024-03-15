@@ -176,7 +176,7 @@ void debug_port_code(uint8_t x, uint8_t y)
 }
 
 
-void debug_soft_uart_TX_init()
+void debug_soft_uart_TX_init(void)
 {
     rcu_periph_clock_enable(DEBUG_RCU_PORT);
     gpio_mode_set(DEBUG_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLUP, debug_pin);
