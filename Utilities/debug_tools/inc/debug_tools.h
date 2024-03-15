@@ -16,5 +16,6 @@ void debug_port_byte(uint8_t *bp, uint8_t len, uint32_t GPIOF_PIN);
 void debug_soft_uart_TX_init(uint32_t GPIOF_PIN);
 void debug_soft_uart_send_data(uint8_t data, uint32_t GPIOF_PIN);
 void debug_test_gpio_output(uint32_t gpio_periph, uint32_t pin);
-void debug_port_num_code(uint16_t data, uint32_t GPIOF_PIN);
+void debug_port_num_code_hw(uint16_t data, uint32_t GPIOF_PIN);
+void debug_port_num_code_by(uint8_t data, uint32_t GPIOF_PIN);
 #endif // DEBUG_TOOLS_H
