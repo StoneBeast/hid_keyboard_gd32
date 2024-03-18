@@ -9,7 +9,7 @@
 #define BUFFER_SIZE 14
 #define GPIO_PIN(x) BIT(x)
 
-static bool gs_ghosting_flag = FALSE;
+static volatile bool gs_ghosting_flag = FALSE;
 
 typedef struct
 {
@@ -132,12 +132,27 @@ static bool is_ghosting(uint8_t row_code, uint8_t col_code)
 {
     for (uint8_t i = 0; (i < gs_input_key_buffer.key_count) && (gs_ghosting_flag == FALSE) && (gs_input_key_buffer.key_count>=2); i++)
     {
-        if ((gs_input_key_buffer.buffer[i] & col_code) == col_code)
+        if ((gs_input_key_buffer.buffer[i] << 4) == (col_code << 4))
         {
-            // 发现同列按键, 判断该按键是否有同行按键
+            // 发现同列按键, 判断该按键以及该同列是否有同行按键
             for (uint8_t j = 0; j < gs_input_key_buffer.key_count; j++)
             {
-                if ((gs_input_key_buffer.buffer[i] ^ gs_input_key_buffer.buffer[j]) < 0x10)
+                if (((gs_input_key_buffer.buffer[i] >> 4) == (gs_input_key_buffer.buffer[j] >> 4)) || 
+                    (row_code == (gs_input_key_buffer.buffer[j] >> 4)))
+                {
+                    gs_ghosting_flag = TRUE;
+                    break;
+                }
+            }
+        }
+
+        if ((gs_input_key_buffer.buffer[i] >> 4) == row_code)
+        {
+            // 发现同行按键, 判断该按键以及该同列按键是否有是否有同列按键
+            for (uint8_t j = 0; j < gs_input_key_buffer.key_count; j++)
+            {
+                if (col_code == (gs_input_key_buffer.buffer[i] & 0x00ff) ||
+                    ((gs_input_key_buffer.buffer[i] >> 4) == (gs_input_key_buffer.buffer[j] >> 4)))
                 {
                     gs_ghosting_flag = TRUE;
                     break;
