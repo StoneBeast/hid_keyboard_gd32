@@ -21,6 +21,9 @@ typedef struct
 extern usb_core_handle_struct usbhs_core_dev;
 
 //  接收输入按键，用于验证合法性以及转化为key code
+static uint8_t gs_mx_input_key_buffer[8][16] = {0};
+static uint8_t gs_mx_input_key_buffer_count = 0;
+
 static buffer_t gs_input_key_buffer = {.buffer = {0}, .key_count = 0, .normal_key_count = 0};
 //  作为实际发送的key buffer的缓冲
 static buffer_t gs_temp_key_buffer = {.buffer = {0}, .key_count = 0, .normal_key_count = 0};
@@ -66,8 +69,11 @@ void scan_keyboard(void)
             usbd_hid_report_send(&usbhs_core_dev, get_key_buffer(), 8U);
         }
 
-        memset(gs_input_key_buffer.buffer, 0, BUFFER_SIZE);
-        gs_input_key_buffer.key_count = 0;
+        // memset(gs_input_key_buffer.buffer, 0, BUFFER_SIZE);
+        // gs_input_key_buffer.key_count = 0;
+        memset(gs_mx_input_key_buffer, 0, sizeof(gs_mx_input_key_buffer));
+        gs_mx_input_key_buffer_count = 0;
+        
         
         memset(gs_temp_key_buffer.buffer, 0, BUFFER_SIZE);
         gs_temp_key_buffer.key_count = 0;
@@ -104,10 +110,12 @@ void handle_input_data(uint8_t row_inx, uint16_t gpio_input_data)
 
 static void handle_original_code(uint8_t row_code, uint8_t col_code)
 {
-    if (is_ghosting(row_code, col_code) == FALSE)
+    if (is_ghosting(row_code-1, col_code) == FALSE)
     {
-        gs_input_key_buffer.buffer[gs_input_key_buffer.key_count] = ((row_code<<4) | col_code);
-        gs_input_key_buffer.key_count++;
+        gs_mx_input_key_buffer[row_code-1][col_code] = 1;
+        gs_mx_input_key_buffer_count++;
+        // gs_input_key_buffer.buffer[gs_input_key_buffer.key_count] = ((row_code<<4) | col_code);
+        // gs_input_key_buffer.key_count++;
 
         if (row_code == 0x07)
         {
@@ -126,40 +134,84 @@ static void handle_original_code(uint8_t row_code, uint8_t col_code)
         gs_temp_key_buffer.key_count++;
 
     }
+    else 
+    {
+        gs_ghosting_flag = TRUE;
+    }
 }
 
 static bool is_ghosting(uint8_t row_code, uint8_t col_code)
 {
-    for (uint8_t i = 0; (i < gs_input_key_buffer.key_count) && (gs_ghosting_flag == FALSE) && (gs_input_key_buffer.key_count>=2); i++)
+    //  判断是否有同列
+    for (uint8_t i = 0; i < row_code; i++)
     {
-        if ((gs_input_key_buffer.buffer[i] << 4) == (col_code << 4))
+        if (gs_mx_input_key_buffer[i][col_code] == 1)
         {
-            // 发现同列按键, 判断该按键以及该同列是否有同行按键
-            for (uint8_t j = 0; j < gs_input_key_buffer.key_count; j++)
+            for(uint8_t j = 0; j < 16; j++)
             {
-                if (((gs_input_key_buffer.buffer[i] >> 4) == (gs_input_key_buffer.buffer[j] >> 4)) || 
-                    (row_code == (gs_input_key_buffer.buffer[j] >> 4)))
+                if (j == col_code)
                 {
-                    gs_ghosting_flag = TRUE;
-                    break;
+                    continue;
                 }
-            }
-        }
-
-        if ((gs_input_key_buffer.buffer[i] >> 4) == row_code)
-        {
-            // 发现同行按键, 判断该按键以及该同列按键是否有是否有同列按键
-            for (uint8_t j = 0; j < gs_input_key_buffer.key_count; j++)
-            {
-                if (col_code == (gs_input_key_buffer.buffer[i] & 0x0f) ||
-                    ((gs_input_key_buffer.buffer[i] << 4) == (gs_input_key_buffer.buffer[j] << 4)))
+                if ((gs_mx_input_key_buffer[i][j] == 1) || (gs_mx_input_key_buffer[row_code][j] == 1))
                 {
-                    gs_ghosting_flag = TRUE;
-                    break;
+                    return TRUE;
                 }
             }
         }
     }
 
-    return gs_ghosting_flag;
+    //  判断是否有同行
+    for (uint8_t i = 0; i < col_code; i++)
+    {
+        if (gs_mx_input_key_buffer[row_code][i] == 1)
+        {
+            for (uint8_t j = 0; j < row_code; j++)
+            {
+                if (j == row_code)
+                {
+                    continue;
+                }
+                if ((gs_mx_input_key_buffer[j][i] == 1) || (gs_mx_input_key_buffer[j][col_code] == 1))
+                {
+                    return TRUE;
+                }
+            }
+        }
+    }
+
+    return FALSE;
+    
+    // for (uint8_t i = 0; (i < gs_input_key_buffer.key_count) && (gs_ghosting_flag == FALSE) && (gs_input_key_buffer.key_count>=2); i++)
+    // {
+    //     if ((gs_input_key_buffer.buffer[i] << 4) == (col_code << 4))
+    //     {
+    //         // 发现同列按键, 判断该按键以及该同列是否有同行按键
+    //         for (uint8_t j = 0; j < gs_input_key_buffer.key_count; j++)
+    //         {
+    //             if (((gs_input_key_buffer.buffer[i] >> 4) == (gs_input_key_buffer.buffer[j] >> 4)) || 
+    //                 (row_code == (gs_input_key_buffer.buffer[j] >> 4)))
+    //             {
+    //                 gs_ghosting_flag = TRUE;
+    //                 break;
+    //             }
+    //         }
+    //     }
+
+    //     if ((gs_input_key_buffer.buffer[i] >> 4) == row_code)
+    //     {
+    //         // 发现同行按键, 判断该按键以及该同列按键是否有是否有同列按键
+    //         for (uint8_t j = 0; j < gs_input_key_buffer.key_count; j++)
+    //         {
+    //             if (col_code == (gs_input_key_buffer.buffer[i] & 0x0f) ||
+    //                 ((gs_input_key_buffer.buffer[i] << 4) == (gs_input_key_buffer.buffer[j] << 4)))
+    //             {
+    //                 gs_ghosting_flag = TRUE;
+    //                 break;
+    //             }
+    //         }
+    //     }
+    // }
+
+    // return gs_ghosting_flag;
 }
