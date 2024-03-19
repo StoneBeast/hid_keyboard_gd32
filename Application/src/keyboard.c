@@ -151,8 +151,8 @@ static bool is_ghosting(uint8_t row_code, uint8_t col_code)
             // 发现同行按键, 判断该按键以及该同列按键是否有是否有同列按键
             for (uint8_t j = 0; j < gs_input_key_buffer.key_count; j++)
             {
-                if (col_code == (gs_input_key_buffer.buffer[i] & 0x00ff) ||
-                    ((gs_input_key_buffer.buffer[i] >> 4) == (gs_input_key_buffer.buffer[j] >> 4)))
+                if (col_code == (gs_input_key_buffer.buffer[i] & 0x0f) ||
+                    ((gs_input_key_buffer.buffer[i] << 4) == (gs_input_key_buffer.buffer[j] << 4)))
                 {
                     gs_ghosting_flag = TRUE;
                     break;
