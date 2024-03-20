@@ -3,7 +3,6 @@
 #include "usb_user.h"
 #include "key_gpio.h"
 
-// static uint8_t key_buffer[HID_IN_PACKET] = {0};
 uint8_t key_buffer[HID_IN_PACKET] = {0};
 
 __IO uint8_t prev_transfer_complete = 1U;

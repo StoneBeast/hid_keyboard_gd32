@@ -117,19 +117,6 @@
 #include "hid_core.h"
 #include "usb_user.h"
 
-/*
-    Pb 0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 (中断)
-    Pa
-     1
-     2
-     3
-     4
-     5
-     6
-   7(E)
-   8(0)
-  (输出)
-*/
 
 void scan_keyboard(void);
 
