@@ -6,7 +6,7 @@
 
 #include "debug_tools.h"
 
-#define BUFFER_SIZE 14
+#define BUFFER_SIZE 8
 #define GPIO_PIN(x) BIT(x)
 
 static volatile bool gs_ghosting_flag = FALSE;
@@ -20,11 +20,10 @@ typedef struct
 
 extern usb_core_handle_struct usbhs_core_dev;
 
-//  接收输入按键，用于验证合法性以及转化为key code
+//  接收输入按键，用于验证合法性
 static uint8_t gs_mx_input_key_buffer[8][16] = {0};
 static uint8_t gs_mx_input_key_buffer_count = 0;
 
-static buffer_t gs_input_key_buffer = {.buffer = {0}, .key_count = 0, .normal_key_count = 0};
 //  作为实际发送的key buffer的缓冲
 static buffer_t gs_temp_key_buffer = {.buffer = {0}, .key_count = 0, .normal_key_count = 0};
 
@@ -55,10 +54,16 @@ void scan_keyboard(void)
         {
             //  逐行扫描
             gpio_bit_reset(GPIOA, GPIO_PIN(row_inx));
+
             //  获取当前的col输入
             col_data = gpio_input_port_get(GPIOB);
-            //  处理col data
-            handle_input_data(row_inx, col_data);
+            //  消抖
+            delay_ms(10);
+            if (col_data ==  gpio_input_port_get(GPIOB))
+            {
+                //  处理col data
+                handle_input_data(row_inx, col_data);
+            }
 
             gpio_bit_set(GPIOA, GPIO_PIN(row_inx));
         }
@@ -69,8 +74,7 @@ void scan_keyboard(void)
             usbd_hid_report_send(&usbhs_core_dev, get_key_buffer(), 8U);
         }
 
-        // memset(gs_input_key_buffer.buffer, 0, BUFFER_SIZE);
-        // gs_input_key_buffer.key_count = 0;
+
         memset(gs_mx_input_key_buffer, 0, sizeof(gs_mx_input_key_buffer));
         gs_mx_input_key_buffer_count = 0;
         
@@ -114,8 +118,6 @@ static void handle_original_code(uint8_t row_code, uint8_t col_code)
     {
         gs_mx_input_key_buffer[row_code-1][col_code] = 1;
         gs_mx_input_key_buffer_count++;
-        // gs_input_key_buffer.buffer[gs_input_key_buffer.key_count] = ((row_code<<4) | col_code);
-        // gs_input_key_buffer.key_count++;
 
         if (row_code == 0x07)
         {
@@ -142,6 +144,16 @@ static void handle_original_code(uint8_t row_code, uint8_t col_code)
 
 static bool is_ghosting(uint8_t row_code, uint8_t col_code)
 {
+    if (gs_mx_input_key_buffer_count < 2)
+    {
+        return FALSE;
+    }
+
+    if (gs_temp_key_buffer.key_count > 14 || gs_temp_key_buffer.normal_key_count > 6)
+    {
+        return TRUE;
+    }
+
     //  判断是否有同列
     for (uint8_t i = 0; i < row_code; i++)
     {
@@ -168,10 +180,6 @@ static bool is_ghosting(uint8_t row_code, uint8_t col_code)
         {
             for (uint8_t j = 0; j < row_code; j++)
             {
-                if (j == row_code)
-                {
-                    continue;
-                }
                 if ((gs_mx_input_key_buffer[j][i] == 1) || (gs_mx_input_key_buffer[j][col_code] == 1))
                 {
                     return TRUE;
@@ -181,37 +189,4 @@ static bool is_ghosting(uint8_t row_code, uint8_t col_code)
     }
 
     return FALSE;
-    
-    // for (uint8_t i = 0; (i < gs_input_key_buffer.key_count) && (gs_ghosting_flag == FALSE) && (gs_input_key_buffer.key_count>=2); i++)
-    // {
-    //     if ((gs_input_key_buffer.buffer[i] << 4) == (col_code << 4))
-    //     {
-    //         // 发现同列按键, 判断该按键以及该同列是否有同行按键
-    //         for (uint8_t j = 0; j < gs_input_key_buffer.key_count; j++)
-    //         {
-    //             if (((gs_input_key_buffer.buffer[i] >> 4) == (gs_input_key_buffer.buffer[j] >> 4)) || 
-    //                 (row_code == (gs_input_key_buffer.buffer[j] >> 4)))
-    //             {
-    //                 gs_ghosting_flag = TRUE;
-    //                 break;
-    //             }
-    //         }
-    //     }
-
-    //     if ((gs_input_key_buffer.buffer[i] >> 4) == row_code)
-    //     {
-    //         // 发现同行按键, 判断该按键以及该同列按键是否有是否有同列按键
-    //         for (uint8_t j = 0; j < gs_input_key_buffer.key_count; j++)
-    //         {
-    //             if (col_code == (gs_input_key_buffer.buffer[i] & 0x0f) ||
-    //                 ((gs_input_key_buffer.buffer[i] << 4) == (gs_input_key_buffer.buffer[j] << 4)))
-    //             {
-    //                 gs_ghosting_flag = TRUE;
-    //                 break;
-    //             }
-    //         }
-    //     }
-    // }
-
-    // return gs_ghosting_flag;
 }
