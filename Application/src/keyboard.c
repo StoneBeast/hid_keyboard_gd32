@@ -57,13 +57,8 @@ void scan_keyboard(void)
 
             //  获取当前的col输入
             col_data = gpio_input_port_get(GPIOB);
-            //  消抖
-            delay_ms(10);
-            if (col_data ==  gpio_input_port_get(GPIOB))
-            {
                 //  处理col data
-                handle_input_data(row_inx, col_data);
-            }
+            handle_input_data(row_inx, col_data);
 
             gpio_bit_set(GPIOA, GPIO_PIN(row_inx));
         }
@@ -95,17 +90,22 @@ void handle_input_data(uint8_t row_inx, uint16_t gpio_input_data)
         return;
     }
 
-    for (uint8_t col_inx = 0; col_inx <= 15; col_inx++)
+    //  消抖
+    delay_ms(15);
+    if (gpio_input_data ^ gpio_input_port_get(GPIOB) == 0xffff)
     {
-        if ((gpio_input_data & 0x0001) == 0x0001)
+        for (uint8_t col_inx = 0; col_inx <= 15; col_inx++)
         {
-            handle_original_code(row_inx, col_inx);
-        }
+            if ((gpio_input_data & 0x0001) == 0x0001)
+            {
+                handle_original_code(row_inx, col_inx);
+            }
 
-        gpio_input_data >>= 1;
-        if (gpio_input_data == 0)
-        {
-            break;
+            gpio_input_data >>= 1;
+            if (gpio_input_data == 0)
+            {
+                break;
+            }
         }
     }
 }
