@@ -26,6 +26,8 @@ static uint8_t gs_mx_input_key_buffer_count = 0;
 //  作为实际发送的key buffer的缓冲
 static buffer_t gs_temp_key_buffer = {.buffer = {0}, .key_count = 0, .normal_key_count = 0};
 
+static uint16_t gs_input_col_data_buffer[16] = {0};
+
 static void handle_input_data(uint8_t row_inx, uint16_t gpio_input_data);
 static void handle_original_code(uint8_t row_code, uint8_t col_code);
 static bool is_ghosting(uint8_t row_code, uint8_t col_code);
@@ -84,27 +86,37 @@ void scan_keyboard(void)
 void handle_input_data(uint8_t row_inx, uint16_t gpio_input_data)
 {
     gpio_input_data = ~gpio_input_data;
+
+    if (gpio_input_data != gs_input_col_data_buffer[row_inx - 1])
+    {
+        //  消抖
+        delay_ms(50);
+        if ((gpio_input_data ^ gpio_input_port_get(GPIOB)) == 0xffff)
+        {
+            gs_input_col_data_buffer[row_inx - 1] = gpio_input_data;
+        }
+        else
+        {
+            gpio_input_data = gs_input_col_data_buffer[row_inx - 1];
+        }
+    }
+
     if (gpio_input_data == 0x0000)
     {
         return;
     }
 
-    //  消抖
-    delay_ms(15);
-    if (gpio_input_data ^ gpio_input_port_get(GPIOB) == 0xffff)
+    for (uint8_t col_inx = 0; col_inx <= 15; col_inx++)
     {
-        for (uint8_t col_inx = 0; col_inx <= 15; col_inx++)
+        if ((gpio_input_data & 0x0001) == 0x0001)
         {
-            if ((gpio_input_data & 0x0001) == 0x0001)
-            {
-                handle_original_code(row_inx, col_inx);
-            }
+            handle_original_code(row_inx, col_inx);
+        }
 
-            gpio_input_data >>= 1;
-            if (gpio_input_data == 0)
-            {
-                break;
-            }
+        gpio_input_data >>= 1;
+        if (gpio_input_data == 0)
+        {
+            break;
         }
     }
 }
