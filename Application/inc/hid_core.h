@@ -38,9 +38,10 @@ OF SUCH DAMAGE.
 
 #include  "usbd_std.h"
 
-#define USB_HID_CONFIG_DESC_SIZE        0x22
+#define USB_HID_CONFIG_DESC_SIZE        0x59
 #define USB_HID_DESC_SIZE               0x09
-#define USB_HID_REPORT_DESC_SIZE        0x29
+#define USB_HID_REPORT_DESC_SIZE        64u
+#define USB_HID_FN_REPORT_DESC_SIZE     135u
 
 #define HID_DESC_TYPE                   0x21
 #define HID_REPORT_DESCTYPE             0x22
@@ -74,6 +75,9 @@ typedef struct
     usb_descriptor_interface_struct            hid_interface;
     usb_hid_descriptor_hid_struct              hid_vendor;
     usb_descriptor_endpoint_struct             hid_in_endpoint;
+    usb_descriptor_interface_struct            hid_fn_interface;
+    usb_hid_descriptor_hid_struct              hid_fn_custom;
+    usb_descriptor_endpoint_struct             hid_fn_endpoint;
 } usb_descriptor_configuration_set_struct;
 
 extern uint8_t* usbd_strings[USB_STRING_COUNT];
@@ -91,6 +95,6 @@ uint8_t usbd_hid_classreq_handle (void *pudev, usb_device_req_struct *req);
 uint8_t usbd_hid_data_handler (void *pudev, usb_dir_enum rx_tx, uint8_t ep_id);
 
 /* send keyboard report */
-uint8_t usbd_hid_report_send (usb_core_handle_struct *pudev, uint8_t *report, uint16_t Len);
+uint8_t usbd_hid_report_send(usb_core_handle_struct *pudev, uint8_t *report, uint16_t Len, uint8_t ep_addr);
 
 #endif  /* HID_CORE_H */

@@ -67,7 +67,7 @@ void scan_keyboard(void)
         if ((gs_ghosting_flag == FALSE) && (buffer_cmp(gs_temp_key_buffer.buffer) == 0))
         {
             memcpy(get_key_buffer(), gs_temp_key_buffer.buffer, 8);
-            usbd_hid_report_send(&usbhs_core_dev, get_key_buffer(), 8U);
+            usbd_hid_report_send(&usbhs_core_dev, get_key_buffer(), 8U, EP1_IN);
         }
 
 

@@ -37,9 +37,12 @@ OF SUCH DAMAGE.
 #include "usbd_std.h"
 #include "usbd_int.h"
 
+//	TODO: 参考custom demo修改
+
 static uint32_t usbd_hid_altset = 0U;
 static uint32_t usbd_hid_protocol = 0U;
 static uint32_t usbd_hid_idlestate  = 0U;
+static uint8_t  usbd_hid_report_buffer[2] = {0};
 
 extern __IO uint8_t prev_transfer_complete;
 extern void set_key_buffer(uint8_t inx, uint8_t byte);
@@ -66,76 +69,106 @@ __ALIGN_BEGIN usb_descriptor_device_struct device_descripter __ALIGN_END =
     .bMaxPacketSize0 = USB_MAX_EP0_SIZE,
     .idVendor = USBD_VID,
     .idProduct = USBD_PID,
-    .bcdDevice = 0x0100,
+    .bcdDevice = 0x0200,
     .iManufacturer = USBD_MFC_STR_IDX,
     .iProduct = USBD_PRODUCT_STR_IDX,
     .iSerialNumber = USBD_SERIAL_STR_IDX,
     .bNumberConfigurations = USBD_CFG_MAX_NUM
 };
 
-__ALIGN_BEGIN usb_descriptor_configuration_set_struct configuration_descriptor __ALIGN_END = 
-{
-    .config = 
+__ALIGN_BEGIN usb_descriptor_configuration_set_struct configuration_descriptor __ALIGN_END =
     {
-        .Header = 
-         {
-             .bLength = sizeof(usb_descriptor_configuration_struct), 
-             .bDescriptorType = USB_DESCTYPE_CONFIGURATION 
-         },
-        .wTotalLength = USB_HID_CONFIG_DESC_SIZE,
-        .bNumInterfaces = 0x01,
-        .bConfigurationValue = 0x01,
-        .iConfiguration = 0x00,
-        .bmAttributes = 0xA0,
-        .bMaxPower = 0x32
-    },
+        .config =
+            {
+                .Header =
+                    {
+                        .bLength = sizeof(usb_descriptor_configuration_struct),
+                        .bDescriptorType = USB_DESCTYPE_CONFIGURATION},
+                .wTotalLength = USB_HID_CONFIG_DESC_SIZE,
+                .bNumInterfaces = 0x02,
+                .bConfigurationValue = 0x01,
+                .iConfiguration = 0x00,
+                .bmAttributes = 0xA0,
+                .bMaxPower = 0x32},
 
-    .hid_interface = 
-    {
-        .Header = 
-         {
-             .bLength = sizeof(usb_descriptor_interface_struct), 
-             .bDescriptorType = USB_DESCTYPE_INTERFACE 
-         },
-        .bInterfaceNumber = 0x00,
-        .bAlternateSetting = 0x00,
-        .bNumEndpoints = 0x01,
-        .bInterfaceClass = 0x03,
-        .bInterfaceSubClass = 0x01,
-        .bInterfaceProtocol = 0x01,
-        .iInterface = 0x00
-    },
+        .hid_interface =
+            {
+                .Header =
+                    {
+                        .bLength = sizeof(usb_descriptor_interface_struct),
+                        .bDescriptorType = USB_DESCTYPE_INTERFACE},
+                .bInterfaceNumber = 0x00,
+                .bAlternateSetting = 0x00,
+                .bNumEndpoints = 0x01,
+                .bInterfaceClass = 0x03,
+                .bInterfaceSubClass = 0x01,
+                .bInterfaceProtocol = 0x01,
+                .iInterface = 0x00},
 
-    .hid_vendor = 
-    {
-        .Header = 
-         {
-             .bLength = sizeof(usb_hid_descriptor_hid_struct), 
-             .bDescriptorType = HID_DESC_TYPE 
-         },
-        .bcdHID = 0x0111,
-        .bCountryCode = 0x00,
-        .bNumDescriptors = 0x01,
-        .bDescriptorType = HID_REPORT_DESCTYPE,
-        .wDescriptorLength = USB_HID_REPORT_DESC_SIZE,
-    },
+        .hid_vendor =
+            {
+                .Header =
+                    {
+                        .bLength = sizeof(usb_hid_descriptor_hid_struct),
+                        .bDescriptorType = HID_DESC_TYPE},
+                .bcdHID = 0x0111,
+                .bCountryCode = 0x00,
+                .bNumDescriptors = 0x01,
+                .bDescriptorType = HID_REPORT_DESCTYPE,
+                .wDescriptorLength = USB_HID_REPORT_DESC_SIZE,
+            },
 
-    .hid_in_endpoint = 
-    {
-        .Header = 
-         {
-             .bLength = sizeof(usb_descriptor_endpoint_struct), 
-             .bDescriptorType = USB_DESCTYPE_ENDPOINT 
-         },
-        .bEndpointAddress = HID_IN_EP,
-        .bmAttributes = 0x03,
-        .wMaxPacketSize = HID_IN_PACKET,
-        .bInterval = 0x40
-    }
-};
+        .hid_in_endpoint =
+            {
+                .Header =
+                    {
+                        .bLength = sizeof(usb_descriptor_endpoint_struct),
+                        .bDescriptorType = USB_DESCTYPE_ENDPOINT},
+                .bEndpointAddress = HID_IN_EP,
+                .bmAttributes = 0x03,
+                .wMaxPacketSize = HID_IN_PACKET,
+                .bInterval = 18},
+
+        .hid_fn_interface =
+            {
+                .Header =
+                    {
+                        .bLength = sizeof(usb_descriptor_interface_struct),
+                        .bDescriptorType = USB_DESCTYPE_INTERFACE},
+                .bInterfaceNumber = 0x01,
+                .bAlternateSetting = 0x00,
+                .bNumEndpoints = 0x01,
+                .bInterfaceClass = 0x03,
+                .bInterfaceSubClass = 0x00,
+                .bInterfaceProtocol = 0x00,
+                .iInterface = 0x00},
+
+        .hid_fn_custom =
+            {
+                .Header =
+                    {
+                        .bLength = sizeof(usb_hid_descriptor_hid_struct),
+                        .bDescriptorType = HID_DESC_TYPE},
+                .bcdHID = 0x0111,
+                .bCountryCode = 0x00,
+                .bNumDescriptors = 0x01,
+                .bDescriptorType = HID_REPORT_DESCTYPE,
+                .wDescriptorLength = USB_HID_FN_REPORT_DESC_SIZE,
+            },
+
+        .hid_fn_endpoint =
+            {
+                .Header =
+                    {
+                        .bLength = sizeof(usb_descriptor_endpoint_struct),
+                        .bDescriptorType = USB_DESCTYPE_ENDPOINT},
+                .bEndpointAddress = HID_FN_IN_EP,
+                .bmAttributes = 0x03,
+                .wMaxPacketSize = HID_IN_PACKET,
+                .bInterval = 0x30}};
 
 /* USB language ID Descriptor */
-__ALIGN_BEGIN const usb_descriptor_language_id_struct usbd_language_id_desc __ALIGN_END = 
+__ALIGN_BEGIN usb_descriptor_language_id_struct usbd_language_id_desc __ALIGN_END = 
 {
     .Header = 
      {
@@ -153,33 +186,96 @@ __ALIGN_BEGIN uint8_t* usbd_strings[] __ALIGN_END =
     [USBD_SERIAL_STR_IDX] = USBD_STRING_DESC("GD32F3X0-V1.0.0-3a4b5ec")
 };
 
-__ALIGN_BEGIN const uint8_t hid_report_desc[USB_HID_REPORT_DESC_SIZE] __ALIGN_END =
-{
-    0x05, 0x01,  /* USAGE_PAGE (Generic Desktop) */
-    0x09, 0x06,  /* USAGE (Keyboard) */
-    0xa1, 0x01,  /* COLLECTION (Application) */
+__ALIGN_BEGIN uint8_t hid_report_desc[USB_HID_REPORT_DESC_SIZE] __ALIGN_END =
+    {
+        0x05, 0x01,       // USAGE_PAGE (Generic Desktop)
+        0x09, 0x06,       // USAGE (Keyboard)
+        0xa1, 0x01,       // COLLECTION (Application)
+        0x05, 0x07,       //   USAGE_PAGE (Keyboard)
+        0x19, 0xe0,       //   USAGE_MINIMUM (Keyboard LeftControl)
+        0x29, 0xe7,       //   USAGE_MAXIMUM (Keyboard Right GUI)
+        0x15, 0x00,       //   LOGICAL_MINIMUM (0)
+        0x25, 0x01,       //   LOGICAL_MAXIMUM (1)
+        0x75, 0x01,       //   REPORT_SIZE (1)
+        0x95, 0x08,       //   REPORT_COUNT (8)
+        0x81, 0x02,       //   INPUT (Data,Var,Abs)
+        0x95, 0x01,       //   REPORT_COUNT (1)
+        0x75, 0x08,       //   REPORT_SIZE (8)
+        0x81, 0x01,       //   INPUT (Cnst,Ary,Abs)
+        0x95, 0x03,       //   REPORT_COUNT (3)
+        0x75, 0x01,       //   REPORT_SIZE (1)
+        0x05, 0x08,       //   USAGE_PAGE (LEDs)
+        0x19, 0x01,       //   USAGE_MINIMUM (Num Lock)
+        0x29, 0x03,       //   USAGE_MAXIMUM (Scroll Lock)
+        0x91, 0x02,       //   OUTPUT (Data,Var,Abs)
+        0x95, 0x01,       //   REPORT_COUNT (1)
+        0x75, 0x05,       //   REPORT_SIZE (5)
+        0x91, 0x01,       //   OUTPUT (Cnst,Ary,Abs)
+        0x95, 0x06,       //   REPORT_COUNT (6)
+        0x75, 0x08,       //   REPORT_SIZE (8)
+        0x15, 0x00,       //   LOGICAL_MINIMUM (0)
+        0x26, 0xff, 0x00, //   LOGICAL_MAXIMUM (255)
+        0x05, 0x07,       //   USAGE_PAGE (Keyboard)
+        0x19, 0x00,       // USAGE_MINIMUM (Reserved (no event indicated))
+        0x29, 0x65,       // USAGE_MAXIMUM (Keyboard Application)
+        0x81, 0x00,       // INPUT (Data,Ary,Abs)
+        0xc0              //               END_COLLECTION
+};
 
-    0x05, 0x07,  /* USAGE_PAGE (Keyboard/Keypad) */
-    0x19, 0xe0,  /* USAGE_MINIMUM (Keyboard LeftControl) */
-    0x29, 0xe7,  /* USAGE_MAXIMUM (Keyboard Right GUI) */
-    0x15, 0x00,  /* LOGICAL_MINIMUM (0) */
-    0x25, 0x01,  /* LOGICAL_MAXIMUM (1) */
-    0x95, 0x08,  /* REPORT_COUNT (8) */
-    0x75, 0x01,  /* REPORT_SIZE (1) */
-    0x81, 0x02,  /* INPUT (Data,Var,Abs) */
+__ALIGN_BEGIN uint8_t hid_fn_report_desc[USB_HID_FN_REPORT_DESC_SIZE] __ALIGN_END =
+    {
+        0x06, 0x0C, 0x00,             // Usage Page (Consumer)
+        0x09, 0x01,                   // Usage (Consumer Control)
+        0xA1, 0x01,                   // Collection (Application)
+        0x85, 0x02,                   //   Report ID (2)
+        0x25, 0x01,                   //   Logical Maximum (1)
+        0x15, 0x00,                   //   Logical Minimum (0)
+        0x75, 0x01,                   //   Report Size (1)
+        0x0A, 0xEA, 0x00,             //   Usage (Volume Decrement)
+        0x0A, 0xE9, 0x00,             //   Usage (Volume Increment)
+        0x0A, 0xE2, 0x00,             //   Usage (Mute)
+        0x0B, 0x11, 0x00, 0x09, 0x00, //   Usage (0x090011)
+        0x0A, 0xCD, 0x00,             //   Usage (Play/Pause)
+        0x0A, 0xB7, 0x00,             //   Usage (Stop)
+        0x0A, 0xB6, 0x00,             //   Usage (Scan Previous Track)
+        0x0A, 0xB5, 0x00,             //   Usage (Scan Next Track)
+        0x95, 0x08,                   //   Report Count (8)
+        0x81, 0x02,                   //   Input (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position)
+        0x0B, 0x26, 0x00, 0x09, 0x00, //   Usage (0x090026)
+        0x0B, 0x27, 0x00, 0x09, 0x00, //   Usage (0x090027)
+        0x0B, 0x21, 0x00, 0x09, 0x00, //   Usage (0x090021)
+        0x0B, 0x25, 0x00, 0x09, 0x00, //   Usage (0x090025)
+        0x0A, 0xEC, 0x00,             //   Usage (0xEC)
+        0x0A, 0xEB, 0x00,             //   Usage (0xEB)
+        0x0A, 0x23, 0x02,             //   Usage (AC Home)
+        0x0A, 0x8A, 0x01,             //   Usage (AL Email Reader)
+        0x95, 0x08,                   //   Report Count (8)
+        0x81, 0x02,                   //   Input (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position)
+        0x0A, 0xF8, 0x00,             //   Usage (0xF8)
+        0x0A, 0x92, 0x01,             //   Usage (AL Calculator)
+        0x0A, 0xFA, 0x00,             //   Usage (0xFA)
+        0x0A, 0xFB, 0x00,             //   Usage (0xFB)
+        0x0A, 0xFC, 0x00,             //   Usage (0xFC)
+        0x0A, 0xFD, 0x00,             //   Usage (0xFD)
+        0x0A, 0xFE, 0x00,             //   Usage (0xFE)
+        0x0A, 0xFF, 0x00,             //   Usage (0xFF)
+        0x95, 0x08,                   //   Report Count (8)
+        0x81, 0x02,                   //   Input (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position)
+        0xC0,                         // End Collection
+        0x06, 0x00, 0xFF,             // Usage Page (Vendor Defined 0xFF00)
+        0x09, 0x01,                   // Usage (0x01)
+        0xA1, 0x01,                   // Collection (Application)
+        0x85, 0x05,                   //   Report ID (5)
+        0x15, 0x00,                   //   Logical Minimum (0)
+        0x26, 0xFF, 0x00,             //   Logical Maximum (255)
+        0x19, 0x00,                   //   Usage Minimum (0x00)
+        0x29, 0xFF,                   //   Usage Maximum (0xFF)
+        0x75, 0x08,                   //   Report Size (8)
+        0x95, 0x07,                   //   Report Count (7)
+        0xB1, 0x00,                   //   Feature (Data,Array,Abs,No Wrap,Linear,Preferred State,No Null Position,Non-volatile)
+        0xC0,                         // End Collection
 
-    0x95, 0x01,  /* REPORT_COUNT (1) */
-    0x75, 0x08,  /* REPORT_SIZE (8) */
-    0x81, 0x03,  /* INPUT (Cnst,Var,Abs) */
-
-    0x95, 0x06,  /* REPORT_COUNT (6) */
-    0x75, 0x08,  /* REPORT_SIZE (8) */
-    0x25, 0xFF,  /* LOGICAL_MAXIMUM (255) */
-    0x19, 0x00,  /* USAGE_MINIMUM (Reserved (no event indicated)) */
-    0x29, 0x65,  /* USAGE_MAXIMUM (Keyboard Application) */
-    0x81, 0x00,  /* INPUT (Data,Ary,Abs) */
-
-    0xc0         /* END_COLLECTION */
+        // 135 bytes
 };
 
 /*!
@@ -193,6 +289,7 @@ uint8_t  usbd_hid_init (void *pudev, uint8_t config_index)
 {
     /* initialize Tx endpoint */
     usbd_ep_init(pudev, &(configuration_descriptor.hid_in_endpoint));
+    usbd_ep_init(pudev, &(configuration_descriptor.hid_fn_endpoint));
 
     return USBD_OK;
 }
@@ -208,6 +305,7 @@ uint8_t  usbd_hid_deinit (void *pudev, uint8_t config_index)
 {
     /* deinitialize HID endpoints */
     usbd_ep_deinit (pudev, HID_IN_EP);
+    usbd_ep_deinit (pudev, HID_FN_IN_EP);
 
     return USBD_OK;
 }
@@ -240,7 +338,8 @@ uint8_t usbd_hid_classreq_handle (void *pudev, usb_device_req_struct *req)
             break;
 
         case SET_REPORT:
-            /* no use for this driver */
+            // TODO: 不确定这里需不需要手动发送空包， 同时还不知道在哪里调用 led_handler 对数据进行处理
+            usbd_ctlrx(pudev, usbd_hid_report_buffer, req->wLength);
             break;
 
         case SET_IDLE:
@@ -262,8 +361,20 @@ uint8_t usbd_hid_classreq_handle (void *pudev, usb_device_req_struct *req)
         case USBREQ_GET_DESCRIPTOR:
             switch (req->wValue >> 8) {
             case HID_REPORT_DESCTYPE:
-                len = USB_MIN((uint16_t)USB_HID_REPORT_DESC_SIZE, req->wLength);
-                pbuf = (uint8_t *)&hid_report_desc;
+            //  根据情况，返回两个不同的报告描述符
+                if (req->wValue >> 8 == HID_REPORT_DESCTYPE)
+                {
+                    if (req->wIndex == 0)
+                    {
+                        len = USB_MIN(USB_HID_REPORT_DESC_SIZE, req->wLength);
+                        pbuf = hid_report_desc;
+                    }
+                    else
+                    {
+                        len = USB_MIN(USB_HID_FN_REPORT_DESC_SIZE, req->wLength);
+                        pbuf = hid_fn_report_desc;
+                    }
+                }
                 break;
             case HID_DESC_TYPE:
                 len = USB_MIN((uint16_t)USB_HID_DESC_SIZE, req->wLength);
@@ -314,14 +425,27 @@ uint8_t  usbd_hid_data_handler (void *pudev, usb_dir_enum rx_tx, uint8_t ep_id)
         if (get_key_buffer_byte(2) == 0) {
             prev_transfer_complete = 0x01;
         } else {
-            // set_key_buffer(0, 0);
-            // set_key_buffer(2, 0);
-            // set_key_buffer(3, 0);
-            // set_key_buffer(4, 0);
-            // set_key_buffer(5, 0);
-            // set_key_buffer(6, 0);
-            // set_key_buffer(7, 0);
+
         }
+
+        return USBD_OK;
+    }
+    else if ((USB_TX == rx_tx) && ((HID_FN_IN_EP & 0x7FU) == ep_id))
+    {
+
+        /* ensure that the FIFO is empty before a new transfer,
+         * this condition could be caused by a new transfer
+         * before the end of the previous transfer
+         */
+        // usbd_ep_fifo_flush(pudev, HID_FN_IN_EP);
+
+        // if (get_key_buffer_byte(2) == 0)
+        // {
+        //     prev_transfer_complete = 0x01;
+        // }
+        // else
+        // {
+        // }
 
         return USBD_OK;
     }
@@ -337,12 +461,12 @@ uint8_t  usbd_hid_data_handler (void *pudev, usb_dir_enum rx_tx, uint8_t ep_id)
     \param[out] none
     \retval     USB device operation status
 */
-uint8_t usbd_hid_report_send (usb_core_handle_struct *pudev, uint8_t *report, uint16_t len)
+uint8_t usbd_hid_report_send(usb_core_handle_struct *pudev, uint8_t *report, uint16_t len, uint8_t ep_addr)
 {
     /* check if USB is configured */
     prev_transfer_complete = 0U;
 
-    usbd_ep_tx (pudev, HID_IN_EP, report, len);
+    usbd_ep_tx(pudev, ep_addr, report, len);
 
     return USBD_OK;
 }
