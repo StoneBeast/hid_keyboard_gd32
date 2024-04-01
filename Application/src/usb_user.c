@@ -231,3 +231,22 @@ uint8_t buffer_cmp(uint8_t * temp_buffer)
     return eq_flag;
     
 }
+
+uint8_t find_buffer(const uint8_t *buffer, uint8_t key_code)
+{
+    for (uint8_t i = 2; i < 8; i++)
+    {
+        if (buffer[i] == key_code)
+        {
+            return i;
+        }
+    }
+    return 0;
+}
+
+void handle_led_gpio(uint8_t status_data)
+{
+    gpio_bit_write(GPIOF, GPIO_PIN_6, (bit_status)(0x01 & ((status_data & LED_NUM_LOCK_MASK) >> LED_NUM_LOCK_POS)));
+    gpio_bit_write(GPIOF, GPIO_PIN_7, (bit_status)(0x01 & ((status_data & LED_CAP_LOCK_MASK) >> LED_CAP_LOCK_POS)));
+    gpio_bit_write(GPIOA, GPIO_PIN_10, (bit_status)(0x01 & ((status_data & LED_SCR_LOCK_MASK) >> LED_SCR_LOCK_POS)));
+}
