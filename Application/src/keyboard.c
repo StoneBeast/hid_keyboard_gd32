@@ -5,6 +5,9 @@
 
 #include "debug_tools.h"
 
+// TODO: 观察现象，有可能是0x81 0x82两个端点没有正确打开
+
+
 #define BUFFER_SIZE 8
 #define GPIO_PIN(x) BIT(x)
 
