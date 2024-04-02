@@ -37,6 +37,9 @@ OF SUCH DAMAGE.
 #include "usbd_std.h"
 #include "usbd_int.h"
 
+#include "debug_tools.h"
+
+
 //	TODO: 参考custom demo修改
 
 static uint32_t usbd_hid_altset = 0U;
@@ -45,8 +48,9 @@ static uint32_t usbd_hid_idlestate  = 0U;
 static uint8_t  usbd_hid_report_buffer[2] = {0};
 
 extern __IO uint8_t prev_transfer_complete;
-extern void set_key_buffer(uint8_t inx, uint8_t byte);
+// extern void set_key_buffer(uint8_t inx, uint8_t byte);
 extern uint8_t get_key_buffer_byte(uint8_t inx);
+extern void led_handler(uint8_t data_fragment);
 
 usbd_int_cb_struct *usbd_int_fops = NULL;
 
@@ -422,11 +426,8 @@ uint8_t  usbd_hid_data_handler (void *pudev, usb_dir_enum rx_tx, uint8_t ep_id)
          */
         usbd_ep_fifo_flush(pudev, HID_IN_EP);
 
-        if (get_key_buffer_byte(2) == 0) {
-            prev_transfer_complete = 0x01;
-        } else {
+        prev_transfer_complete = 0x01;
 
-        }
 
         return USBD_OK;
     }
@@ -437,21 +438,17 @@ uint8_t  usbd_hid_data_handler (void *pudev, usb_dir_enum rx_tx, uint8_t ep_id)
          * this condition could be caused by a new transfer
          * before the end of the previous transfer
          */
-        // usbd_ep_fifo_flush(pudev, HID_FN_IN_EP);
+        usbd_ep_fifo_flush(pudev, HID_FN_IN_EP);
 
-        // if (get_key_buffer_byte(2) == 0)
-        // {
-        //     prev_transfer_complete = 0x01;
-        // }
-        // else
-        // {
-        // }
+        prev_transfer_complete = 0x01;
+
 
         return USBD_OK;
     }
 		else if ((USB_RX == rx_tx) && ((0x00 & 0x7fU) == ep_id))
 		{
 			//	handle led
+			led_handler(usbd_hid_report_buffer[1]);
 			return USBD_OK;
 		}
 

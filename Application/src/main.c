@@ -15,6 +15,8 @@ int main(void)
 {
     init_usb();
     
+    debug_port_init(GPIO_PIN_7);
+
     scan_keyboard();
    
     while (1);   

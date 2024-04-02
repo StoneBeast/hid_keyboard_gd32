@@ -55,7 +55,7 @@ OF SUCH DAMAGE.
 #define HID_IN_EP                    EP1_IN
 #define HID_OUT_EP                   EP1_OUT
 
-#define HID_FN_IN_EP                 0x82
+#define HID_FN_IN_EP                 EP2_IN
 
 #define HID_IN_PACKET                8
 #define HID_OUT_PACKET               8

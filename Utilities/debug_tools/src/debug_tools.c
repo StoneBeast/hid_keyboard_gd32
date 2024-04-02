@@ -122,7 +122,7 @@ void debug_port_num_code_by(uint8_t data)
         gpio_bit_set(DEBUG_PORT, debug_pin);
         delay_us(50);
         gpio_bit_write(DEBUG_PORT, debug_pin, 
-                        ((data >> i) & 0x01 == 1)? SET:RESET);
+                        (((data >> i) & 0x01) == 1)? SET:RESET);
         gpio_bit_set(DEBUG_PORT, debug_pin);
         delay_us(50);
         gpio_bit_reset(DEBUG_PORT, debug_pin);
@@ -143,7 +143,7 @@ void debug_port_num_code_hw(uint16_t data)
         gpio_bit_set(DEBUG_PORT, debug_pin);
         delay_us(50);
         gpio_bit_write(DEBUG_PORT, debug_pin, 
-                        ((data >> i) & 0x01 == 1)? SET:RESET);
+                        (((data >> i) & 0x01) == 1)? SET:RESET);
         gpio_bit_set(DEBUG_PORT, debug_pin);
         delay_us(50);
         gpio_bit_reset(DEBUG_PORT, debug_pin);

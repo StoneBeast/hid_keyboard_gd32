@@ -5,9 +5,6 @@
 
 #include "debug_tools.h"
 
-// TODO: 观察现象，有可能是0x81 0x82两个端点没有正确打开
-
-
 #define BUFFER_SIZE 8
 #define GPIO_PIN(x) BIT(x)
 
@@ -71,8 +68,6 @@ static uint32_t gs_input_key_buffer[MX_ROW_COUNT] = {0};
 //  作为实际发送的key buffer的缓冲
 static buffer_t gs_temp_key_buffer = {.buffer = {0}, .key_count = 0, .normal_key_count = 0};
 
-// static uint16_t gs_input_col_data_buffer[16] = {0};
-
 static void handle_input_data(uint8_t row_inx, uint32_t gpio_input_data);
 static void handle_original_code(uint8_t row_code, uint8_t col_code);
 static bool is_ghosting(uint8_t row_code, uint8_t col_code);
@@ -87,7 +82,7 @@ static void handle_fn_key(void);
 */
 void scan_keyboard(void)
 {
-    gpio_port_write(GPIOA, (gpio_output_port_get(GPIOA) | 0x03fc));
+    gpio_port_write(GPIOA, (gpio_output_port_get(GPIOA) & 0xfc03));
 
     while (1)
     {
@@ -102,14 +97,14 @@ void scan_keyboard(void)
         for (uint8_t row_inx = ROW_OFFSET; row_inx < (ROW_OFFSET + MX_ROW_COUNT); row_inx++)
         {
             //  逐行扫描
-            gpio_bit_reset(GPIOA, GPIO_PIN(row_inx));
+            gpio_bit_set(GPIOA, GPIO_PIN(row_inx));
 
             //  获取当前的col输入
             col_data = get_col_data();
             //  处理col data
             handle_input_data(row_inx, col_data);
 
-            gpio_bit_set(GPIOA, GPIO_PIN(row_inx));
+            gpio_bit_reset(GPIOA, GPIO_PIN(row_inx));
         }
 
         handle_fn_key();
@@ -143,13 +138,15 @@ void scan_keyboard(void)
 
 void handle_input_data(uint8_t row_inx, uint32_t gpio_input_data)
 {
-    gpio_input_data = ~gpio_input_data;
+    // gpio_input_data = ~gpio_input_data;
 
-    if (gpio_input_data != gs_input_key_buffer[row_inx - 1])
+    if ((gpio_input_data ^ gs_input_key_buffer[row_inx - ROW_OFFSET]) != 0x0u)
     {
         //  消抖
         delay_ms(50);
-        if ((gpio_input_data ^ get_col_data()) == 0xffffffff)
+
+        //  消抖之后得到的结果相同
+        if ((gpio_input_data ^ get_col_data()) == 0x00000000)
         {
             gs_input_key_buffer[row_inx - ROW_OFFSET] = gpio_input_data;
         }
@@ -159,16 +156,14 @@ void handle_input_data(uint8_t row_inx, uint32_t gpio_input_data)
         }
     }
 
-    if (gpio_input_data == 0xfffc0000)
+    if (gpio_input_data == 0x00000000)
     {
         return;
     }
 
-    gpio_input_data &= 0x0003ffff;
-
     for (uint8_t col_inx = 0; col_inx < MX_COL_COUNT; col_inx++)
     {
-        if ((gpio_input_data & 0x0001) == 0x0001)
+        if ((gpio_input_data & 0x00000001u) == 0x00000001u)
         {
             handle_original_code(row_inx, col_inx);
         }

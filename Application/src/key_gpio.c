@@ -22,9 +22,9 @@ void key_gpio_config(void)
     gpio_mode_set(
         GPIOA,
         GPIO_MODE_INPUT,
-        GPIO_PUPD_PULLUP,
+        GPIO_PUPD_PULLDOWN,
         GPIO_PIN_0 | GPIO_PIN_1);
-    gpio_mode_set(GPIOB, GPIO_MODE_INPUT, GPIO_PUPD_PULLUP, GPIO_PIN_ALL);
+    gpio_mode_set(GPIOB, GPIO_MODE_INPUT, GPIO_PUPD_PULLDOWN, GPIO_PIN_ALL);
 
     gpio_mode_set(
         GPIOF,
