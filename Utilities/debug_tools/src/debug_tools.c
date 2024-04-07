@@ -96,10 +96,8 @@ void debug_port_init(uint32_t GPIOF_PIN)
 
 void debug_port_num(uint8_t n)
 {
-    // uint32_t time = 0;
     uint8_t temp = n+1;
 
-    // while (time++ < 200000);
     delay_ms(50);
     while (temp>0)
     {
@@ -111,11 +109,6 @@ void debug_port_num(uint8_t n)
 
 void debug_port_num_code_by(uint8_t data)
 {
-    // uint8_t p = data >> 4;
-
-    // debug_port_num(p, GPIOF_PIN);
-    // delay_ms(5);
-    // debug_port_num(data & 0x0f, GPIOF_PIN);
     delay_us(150);
     for (uint8_t i = 0; i < 8; i++)
     {
@@ -132,11 +125,6 @@ void debug_port_num_code_by(uint8_t data)
 
 void debug_port_num_code_hw(uint16_t data)
 {
-    // uint8_t p = data >> 4;
-
-    // debug_port_num(p, GPIOF_PIN);
-    // delay_ms(5);
-    // debug_port_num(data & 0x0f, GPIOF_PIN);
     delay_us(150);
     for (uint8_t i = 0; i < 16; i++)
     {
@@ -153,11 +141,9 @@ void debug_port_num_code_hw(uint16_t data)
 
 void debug_port_code(uint8_t x, uint8_t y)
 {
-    // uint32_t time = 0;
     uint8_t temp_x = x+1;
     uint8_t temp_y = y+1;
 
-    // while (time++ < 200000);
     delay_ms(100);
     while (temp_x>0)
     {
@@ -166,7 +152,6 @@ void debug_port_code(uint8_t x, uint8_t y)
         temp_x--;
     }
 
-    // while (time-- > 185000);
     delay_ms(10);
 
     while (temp_y > 0)
@@ -175,41 +160,6 @@ void debug_port_code(uint8_t x, uint8_t y)
         gpio_bit_reset(DEBUG_PORT, debug_pin);
         temp_y--;
     }
-}
-
-
-void debug_soft_uart_TX_init(void)
-{
-    rcu_periph_clock_enable(DEBUG_RCU_PORT);
-    gpio_mode_set(DEBUG_PORT, GPIO_MODE_OUTPUT, GPIO_PUPD_PULLUP, debug_pin);
-    gpio_output_options_set(DEBUG_PORT, GPIO_OTYPE_PP, GPIO_OSPEED_50MHZ, debug_pin);
-
-    gpio_bit_set(DEBUG_PORT, debug_pin);
-}
-
-/*!
- * @brief 	模拟串口1发送一个字节
- * @param
- * @return	none
- * @note	数据低位在前高位在后
- */
-void debug_soft_uart_send_data(uint8_t data)
-{
-    // TODO:没有实现功能，有可能是delay_us有问题
-    uint8_t i = 0;
-    gpio_bit_reset(DEBUG_PORT, debug_pin); //!< 起始位
-    delay_us(delayTime);
-    for (i = 0; i < 8; i++)
-    {
-        if (data & 0x01)
-            gpio_bit_set(DEBUG_PORT, debug_pin);
-        else
-            gpio_bit_reset(DEBUG_PORT, debug_pin);
-        delay_us(delayTime);
-        data >>= 1;
-    }
-    gpio_bit_set(DEBUG_PORT, debug_pin); //!< 停止位
-    delay_us(delayTime);
 }
 
 void debug_test_gpio_output(uint32_t gpio_periph, uint32_t pin)

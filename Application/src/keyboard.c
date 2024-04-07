@@ -1,13 +1,10 @@
+#include "usb_delay.h"
 #include "keyboard.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
-#include "debug_tools.h"
-
-#define BUFFER_SIZE 8
-#define GPIO_PIN(x) BIT(x)
-
+//  real position of a key in keyboard, and item value is a index of keycode in gs_phy_to_keycode[144]
 static uint8_t gs_phy_mx[MX_ROW_COUNT][MX_COL_COUNT] = {
     {2, 3, 4, 5, 8, 9, 10, 81, 86, 0, 0, 0, 121, 11, 124, 116, 0, 0},
     {1, 112, 113, 6, 7, 13, 119, 80, 85, 75, 76, 0, 120, 12, 0, 58, 0, 0},
@@ -18,6 +15,7 @@ static uint8_t gs_phy_mx[MX_ROW_COUNT][MX_COL_COUNT] = {
     {16, 30, 114, 21, 22, 28, 118, 107, 102, 97, 92, 44, 15, 27, 0, 0, 127, 0},
     {17, 18, 19, 20, 23, 24, 25, 106, 101, 96, 91, 0, 14, 26, 125, 126, 0, 0}};
 
+//  keycode
 static uint8_t gs_phy_to_keycode[144] = {
     0, 0x35, 0x1e, 0x1f, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25,
     0x26, 0x27, 0x2d, 0x2e, 0, 0x2a, 0x2b, 0x14, 0x1a,
@@ -47,14 +45,16 @@ static uint8_t fn_key[FN_KEY_COUNT] = {
     KEY_RA,
 };
 
+//  ghosting flag, if there is a ghost key, it will be TURE
 static volatile bool gs_ghosting_flag = FALSE;
+//  if `fn` key be passed, it will be TURE
 static volatile bool gs_fn_key_flag = FALSE;
 
 typedef struct
 {
-    uint8_t buffer[BUFFER_SIZE];
-    uint8_t key_count;
-    uint8_t normal_key_count;
+    uint8_t buffer[BUFFER_SIZE];    //  input key buffer
+    uint8_t key_count;              //  total passed key count
+    uint8_t normal_key_count;       //  all keys but `ctrl`,`shift` etc.
 } buffer_t;
 
 extern usb_core_handle_struct usbhs_core_dev;
@@ -136,6 +136,12 @@ void scan_keyboard(void)
 
 /********************************************** 处理扫描的行数据 *************************************************/
 
+/*!
+    \brief      handle input col data
+    \param[in]  row_inx: current scanning row index
+    \param[in]  gpio_input_data: col data, GPIOB_PIN_0 ... GPIOB_PIN_15 ... GPIOA_PIN_0, GPIOA_PIN_1
+    \retval     none
+*/
 void handle_input_data(uint8_t row_inx, uint32_t gpio_input_data)
 {
     // gpio_input_data = ~gpio_input_data;
@@ -178,6 +184,12 @@ void handle_input_data(uint8_t row_inx, uint32_t gpio_input_data)
 
 /******************************************** 处理得出的物理键码数据 ***********************************************/
 
+/*!
+    \brief      get keycode from row index and col index, and add to temp buffer
+    \param[in]  row_code: index in GPIOA, (row_code - ROW_OFFSET) is real index in physics keyboard
+    \param[in]  col_code: index in GPIOA/GPIOB
+    \retval     none
+*/
 static void handle_original_code(uint8_t row_code, uint8_t col_code)
 {
     if (is_ghosting(row_code - ROW_OFFSET, col_code) == FALSE)
@@ -210,6 +222,12 @@ static void handle_original_code(uint8_t row_code, uint8_t col_code)
     }
 }
 
+/*!
+    \brief      judge if ghost key be passed
+    \param[in]  row_code: real row index in physics keyboard
+    \param[in]  col_code: real col index in physics keyboard
+    \retval     TRUE/FALSE
+*/
 static bool is_ghosting(uint8_t row_code, uint8_t col_code)
 {
     if (gs_mx_input_key_buffer_count < 2)
@@ -261,6 +279,11 @@ static bool is_ghosting(uint8_t row_code, uint8_t col_code)
 
 /********************************************** 工具函数 **************************************************/
 
+/*!
+    \brief      get scan col data
+    \param[in]  none
+    \retval     col_data: [18:31]: reserve, [0:17]: col_data
+*/
 static uint32_t get_col_data(void)
 {
     uint32_t col_data = gpio_input_port_get(GPIOB);
@@ -270,6 +293,11 @@ static uint32_t get_col_data(void)
     return col_data;
 }
 
+/*!
+    \brief      convert to coustom report if `fn` be passed 
+    \param[in]  none
+    \retval     none
+*/
 static void handle_fn_key(void)
 {
     if (gs_fn_key_flag)
@@ -341,12 +369,17 @@ static void handle_fn_key(void)
     }
 }
 
-void led_handler(uint8_t data_fragment)
+/*!
+    \brief      led handler
+    \param[in]  led_data
+    \retval     none
+*/
+void led_handler(uint8_t led_data)
 {
     /*
      * PA10 scrlk
      * PF6  numlk
      * PF7  caplk
      */
-    handle_led_gpio(data_fragment);
+    handle_led_gpio(led_data);
 }

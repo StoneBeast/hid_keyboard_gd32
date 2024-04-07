@@ -194,22 +194,6 @@ uint8_t* get_key_buffer(void)
     return key_buffer;
 }
 
-/*!
-    \brief      find key code in the key buffer
-    \param[in]  key_code: key code to find
-    \retval     index of key code in the key buffer or 0
-*/
-uint8_t find_key_buffer(uint8_t key_code)
-{
-    for (uint8_t i=2; i<8; i++)
-    {
-        if (key_buffer[i] == key_code)
-        {
-            return i;
-        }
-    }
-    return 0;
-}
 
 /*!
     \brief      compare current key buffer and new key buffer
@@ -232,6 +216,12 @@ uint8_t buffer_cmp(uint8_t * temp_buffer)
     
 }
 
+/*!
+    \brief      find key_code in a buffer,and return index
+    \param[in]  buffer: key_code find in
+    \param[in]  key_code: going to find
+    \retval     index of the key_code in the buffer, if not found, return 0
+*/
 uint8_t find_buffer(const uint8_t *buffer, uint8_t key_code)
 {
     for (uint8_t i = 2; i < 8; i++)
@@ -244,6 +234,13 @@ uint8_t find_buffer(const uint8_t *buffer, uint8_t key_code)
     return 0;
 }
 
+/*!
+    \brief      handle NumLock,CapsLock,ScrLock LED
+    \param[in]  status_data: uint8_t type, 1:ON/0:OFF
+                             [3:7]: reserve, default:0, 
+                             [0:2]: NumLock, CapsLock, ScrLock
+    \retval     NULL
+*/
 void handle_led_gpio(uint8_t status_data)
 {
     gpio_bit_write(GPIOF, GPIO_PIN_6, (bit_status)(0x01 & ((status_data & LED_NUM_LOCK_MASK) >> LED_NUM_LOCK_POS)));

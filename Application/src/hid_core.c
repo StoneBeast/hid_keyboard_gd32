@@ -37,11 +37,6 @@ OF SUCH DAMAGE.
 #include "usbd_std.h"
 #include "usbd_int.h"
 
-#include "debug_tools.h"
-
-
-//	TODO: 参考custom demo修改
-
 static uint32_t usbd_hid_altset = 0U;
 static uint32_t usbd_hid_protocol = 0U;
 static uint32_t usbd_hid_idlestate  = 0U;
@@ -342,7 +337,6 @@ uint8_t usbd_hid_classreq_handle (void *pudev, usb_device_req_struct *req)
             break;
 
         case SET_REPORT:
-            // TODO: 不确定这里需不需要手动发送空包， 同时还不知道在哪里调用 led_handler 对数据进行处理
             usbd_ctlrx(pudev, usbd_hid_report_buffer, req->wLength);
             break;
 
