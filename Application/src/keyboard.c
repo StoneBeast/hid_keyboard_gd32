@@ -82,6 +82,7 @@ static void handle_fn_key(void);
 */
 void scan_keyboard(void)
 {
+    //  0xfc03: 1111 1100 0000 0011 gpio2-gpio9
     gpio_port_write(GPIOA, (gpio_output_port_get(GPIOA) & 0xfc03));
 
     while (1)
