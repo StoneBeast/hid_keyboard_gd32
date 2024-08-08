@@ -2,8 +2,8 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include "usb_delay.h"
 
-#include "debug_tools.h"
 
 #define BUFFER_SIZE 8
 #define GPIO_PIN(x) BIT(x)
@@ -34,22 +34,8 @@ static uint8_t gs_phy_to_keycode[144] = {
     0x46, 0, 0, 0xe3, 0, 0x65, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0};
 
-static uint8_t fn_key[FN_KEY_COUNT] = {
-    KEY_F10,
-    KEY_F11,
-    KEY_F12,
-    KEY_PRT_SC,
-    KEY_DEL,
-    KEY_INS,
-    KEY_UA,
-    KEY_DA,
-    KEY_LA,
-    KEY_RA,
-};
 
 static volatile bool gs_ghosting_flag = FALSE;
-static volatile bool gs_fn_key_flag = FALSE;
-static volatile uint8_t gs_light_code = 0x00;
 
 typedef struct
 {
@@ -75,7 +61,6 @@ static void handle_input_data(uint8_t row_inx, uint32_t gpio_input_data);
 static void handle_original_code(uint8_t row_code, uint8_t col_code);
 static bool is_ghosting(uint8_t row_code, uint8_t col_code);
 static uint32_t get_col_data(void);
-static void handle_fn_key(void);
 
 /*!
     \brief      scan the keyboard matrix
@@ -91,8 +76,6 @@ void scan_keyboard(void)
     {
         uint32_t col_data = 0x00000000;
         gs_ghosting_flag = FALSE;
-        gs_fn_key_flag = FALSE;
-        gs_light_code = 0x00;
 
         /*
             这里增加判断，当本轮扫描出现冲突时，停止扫描以提高效率，但是每次循环
@@ -111,20 +94,13 @@ void scan_keyboard(void)
             gpio_bit_set(GPIOA, GPIO_PIN(row_inx));
         }
 
-        handle_fn_key();
 
         if ((gs_ghosting_flag == FALSE) && (buffer_cmp(gs_temp_key_buffer.buffer) == 0))
         {
             memcpy(get_key_buffer(), gs_temp_key_buffer.buffer, 8);
 
-            if ((gs_fn_key_flag && (gs_temp_key_buffer.key_count == 2)))
-            {
-                usbd_hid_report_send(&usbhs_core_dev, get_key_buffer(), 4U, EP2_IN);
-            }
-            else
-            {
-                usbd_hid_report_send(&usbhs_core_dev, get_key_buffer(), 8U, EP1_IN);
-            }
+            usbd_hid_report_send(&usbhs_core_dev, get_key_buffer(), 8U, EP1_IN);
+
         }
 
 
@@ -147,7 +123,7 @@ void handle_input_data(uint8_t row_inx, uint32_t gpio_input_data)
     if (gpio_input_data != gs_input_key_buffer[row_inx - 1])
     {
         //  消抖
-        delay_ms(50);
+        delay_ms(30);
         if ((gpio_input_data ^ get_col_data()) == 0xffffffff)
         {
             gs_input_key_buffer[row_inx - ROW_OFFSET] = gpio_input_data;
@@ -191,14 +167,7 @@ static void handle_original_code(uint8_t row_code, uint8_t col_code)
 
         /* 得出HID键码 */
         uint8_t key_code = gs_phy_to_keycode[gs_phy_mx[row_code - ROW_OFFSET][col_code]];
-        if (key_code == 0xff)
-        {
-            gs_fn_key_flag = TRUE;
-        }
-        if (key_code == 0x44 || key_code == 0x45)
-        {
-            
-        }
+ 
         uint8_t key_code_row = (key_code >> 4);
         uint8_t key_code_col = (key_code & 0x0f);
         if (key_code_row == 0x0e)
@@ -276,77 +245,6 @@ static uint32_t get_col_data(void)
     col_data |= (((uint32_t)gpio_input_bit_get(GPIOA, GPIO_PIN(1))) << 17);
 
     return col_data;
-}
-
-static void handle_fn_key(void)
-{
-    if (gs_fn_key_flag)
-    {
-        uint8_t tp = 0;
-        uint8_t mp = 8;
-        uint8_t temp_key = 0xfe;
-        uint8_t temp_key_p = 11;
-
-        for (uint8_t i = 0; i < FN_KEY_COUNT; ++i)
-        {
-            tp = find_buffer(gs_temp_key_buffer.buffer, fn_key[i]);
-            if ((tp < mp) && (tp > 1))
-            {
-                mp = tp;
-                temp_key = fn_key[i];
-                temp_key_p = i;
-            }
-        }
-
-        if ((temp_key != 0xfe) && (temp_key_p != 11))
-        {
-            memset(gs_temp_key_buffer.buffer, 0, BUFFER_SIZE);
-
-            //  发送特殊报文
-            if (temp_key_p < 5)
-            {
-                gs_temp_key_buffer.key_count = 2;
-                gs_temp_key_buffer.normal_key_count = 2;
-                gs_temp_key_buffer.buffer[0] = 0x02;
-                gs_temp_key_buffer.buffer[1] = (1 << temp_key_p);
-            }
-            //  发送普通键码
-            else
-            {
-                gs_temp_key_buffer.key_count = 1;
-                gs_temp_key_buffer.normal_key_count = 1;
-                gs_temp_key_buffer.buffer[0] = 0x00;
-                gs_temp_key_buffer.buffer[1] = 0x00;
-                switch (fn_key[temp_key_p])
-                {
-                case KEY_INS:
-                    gs_temp_key_buffer.buffer[2] = 0x47;
-                    break;
-                case KEY_UA:
-                    gs_temp_key_buffer.buffer[2] = 0x4b;
-                    break;
-                case KEY_DA:
-                    gs_temp_key_buffer.buffer[2] = 0x4e;
-                    break;
-                case KEY_LA:
-                    gs_temp_key_buffer.buffer[2] = 0x4a;
-                    break;
-                case KEY_RA:
-                    gs_temp_key_buffer.buffer[2] = 0x4d;
-                    break;
-                default:
-                    break;
-                }
-            }
-        }
-        else
-        {
-            gs_temp_key_buffer.buffer[find_buffer(gs_temp_key_buffer.buffer, 0xff)] = 0x00;
-            gs_temp_key_buffer.key_count -= 1;
-            gs_temp_key_buffer.normal_key_count -= 1;
-            gs_fn_key_flag = FALSE;
-        }
-    }
 }
 
 void led_handler(uint8_t data_fragment)
