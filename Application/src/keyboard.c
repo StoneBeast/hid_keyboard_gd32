@@ -49,6 +49,7 @@ static uint8_t fn_key[FN_KEY_COUNT] = {
 
 static volatile bool gs_ghosting_flag = FALSE;
 static volatile bool gs_fn_key_flag = FALSE;
+static volatile uint8_t gs_light_code = 0x00;
 
 typedef struct
 {
@@ -91,6 +92,7 @@ void scan_keyboard(void)
         uint32_t col_data = 0x00000000;
         gs_ghosting_flag = FALSE;
         gs_fn_key_flag = FALSE;
+        gs_light_code = 0x00;
 
         /*
             这里增加判断，当本轮扫描出现冲突时，停止扫描以提高效率，但是每次循环
@@ -192,6 +194,10 @@ static void handle_original_code(uint8_t row_code, uint8_t col_code)
         if (key_code == 0xff)
         {
             gs_fn_key_flag = TRUE;
+        }
+        if (key_code == 0x44 || key_code == 0x45)
+        {
+            
         }
         uint8_t key_code_row = (key_code >> 4);
         uint8_t key_code_col = (key_code & 0x0f);
