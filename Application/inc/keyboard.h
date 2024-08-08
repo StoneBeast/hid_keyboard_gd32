@@ -117,9 +117,9 @@
 #include "hid_core.h"
 #include "usb_user.h"
 
-#define MX_ROW_COUNT 8
-#define MX_COL_COUNT 18
-#define ROW_OFFSET 2
+#define MX_ROW_COUNT 7
+#define MX_COL_COUNT 16
+#define ROW_OFFSET 3
 #define FN_KEY_COUNT 10
 
 #define KEY_F10 0x43

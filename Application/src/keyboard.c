@@ -9,14 +9,13 @@
 #define GPIO_PIN(x) BIT(x)
 
 static uint8_t gs_phy_mx[MX_ROW_COUNT][MX_COL_COUNT] = {
-    {2, 3, 4, 5, 8, 9, 10, 81, 86, 0, 0, 0, 121, 11, 124, 116, 0, 0},
-    {1, 112, 113, 6, 7, 13, 119, 80, 85, 75, 76, 0, 120, 12, 0, 58, 0, 0},
-    {131, 132, 133, 50, 51, 56, 129, 79, 105, 89, 84, 0, 123, 55, 62, 0, 0, 0},
-    {46, 47, 48, 49, 52, 53, 54, 0, 100, 95, 90, 0, 43, 42, 0, 64, 0, 0},
-    {110, 45, 115, 35, 36, 117, 0, 83, 104, 99, 61, 0, 122, 41, 60, 0, 0, 0},
-    {31, 32, 33, 34, 37, 38, 39, 108, 103, 98, 93, 57, 29, 40, 59, 0, 0, 128},
-    {16, 30, 114, 21, 22, 28, 118, 107, 102, 97, 92, 44, 15, 27, 0, 0, 127, 0},
-    {17, 18, 19, 20, 23, 24, 25, 106, 101, 96, 91, 0, 14, 26, 125, 126, 0, 0}};
+    {1, 112, 113, 6, 7, 13, 119, 80, 85, 75, 76, 0, 120, 12, 0, 58},
+    {131, 132, 133, 50, 51, 56, 129, 79, 105, 89, 84, 0, 123, 55, 62, 0},
+    {46, 47, 48, 49, 52, 53, 54, 0, 100, 95, 90, 0, 43, 42, 0, 64},
+    {110, 45, 115, 35, 36, 117, 0, 83, 104, 99, 61, 0, 122, 41, 60, 0},
+    {31, 32, 33, 34, 37, 38, 39, 108, 103, 98, 93, 57, 29, 40, 59, 0},
+    {16, 30, 114, 21, 22, 28, 118, 107, 102, 97, 92, 44, 15, 27, 0, 0},
+    {17, 18, 19, 20, 23, 24, 25, 106, 101, 96, 91, 0, 14, 26, 125, 126}};
 
 static uint8_t gs_phy_to_keycode[144] = {
     0, 0x35, 0x1e, 0x1f, 0x20, 0x21, 0x22, 0x23, 0x24, 0x25,
@@ -57,10 +56,10 @@ static buffer_t gs_temp_key_buffer = {.buffer = {0}, .key_count = 0, .normal_key
 
 // static uint16_t gs_input_col_data_buffer[16] = {0};
 
-static void handle_input_data(uint8_t row_inx, uint32_t gpio_input_data);
+static void handle_input_data(uint8_t row_inx, uint16_t gpio_input_data);
 static void handle_original_code(uint8_t row_code, uint8_t col_code);
 static bool is_ghosting(uint8_t row_code, uint8_t col_code);
-static uint32_t get_col_data(void);
+static uint16_t get_col_data(void);
 
 /*!
     \brief      scan the keyboard matrix
@@ -70,11 +69,13 @@ static uint32_t get_col_data(void);
 */
 void scan_keyboard(void)
 {
-    gpio_port_write(GPIOA, (gpio_output_port_get(GPIOA) | 0x03fc));
+    // 0000 0000 0000 0000
+    // 0000 0011 1111 1000 0X3F8
+    gpio_port_write(GPIOA, (gpio_output_port_get(GPIOA) | 0x03f8));
 
     while (1)
     {
-        uint32_t col_data = 0x00000000;
+        uint16_t col_data = 0x0000;
         gs_ghosting_flag = FALSE;
 
         /*
@@ -116,7 +117,7 @@ void scan_keyboard(void)
 
 /********************************************** 处理扫描的行数据 *************************************************/
 
-void handle_input_data(uint8_t row_inx, uint32_t gpio_input_data)
+void handle_input_data(uint8_t row_inx, uint16_t gpio_input_data)
 {
     gpio_input_data = ~gpio_input_data;
 
@@ -124,7 +125,7 @@ void handle_input_data(uint8_t row_inx, uint32_t gpio_input_data)
     {
         //  消抖
         delay_ms(30);
-        if ((gpio_input_data ^ get_col_data()) == 0xffffffff)
+        if ((gpio_input_data ^ get_col_data()) == 0xffff)
         {
             gs_input_key_buffer[row_inx - ROW_OFFSET] = gpio_input_data;
         }
@@ -134,12 +135,12 @@ void handle_input_data(uint8_t row_inx, uint32_t gpio_input_data)
         }
     }
 
-    if (gpio_input_data == 0xfffc0000)
+    if (gpio_input_data == 0x0000)
     {
         return;
     }
 
-    gpio_input_data &= 0x0003ffff;
+    gpio_input_data &= 0xffff;
 
     for (uint8_t col_inx = 0; col_inx < MX_COL_COUNT; col_inx++)
     {
@@ -238,11 +239,11 @@ static bool is_ghosting(uint8_t row_code, uint8_t col_code)
 
 /********************************************** 工具函数 **************************************************/
 
-static uint32_t get_col_data(void)
+static uint16_t get_col_data(void)
 {
-    uint32_t col_data = gpio_input_port_get(GPIOB);
-    col_data |= (((uint32_t)gpio_input_bit_get(GPIOA, GPIO_PIN(0))) << 16);
-    col_data |= (((uint32_t)gpio_input_bit_get(GPIOA, GPIO_PIN(1))) << 17);
+    uint16_t col_data = gpio_input_port_get(GPIOB);
+    // col_data |= (((uint32_t)gpio_input_bit_get(GPIOA, GPIO_PIN(0))) << 16);
+    // col_data |= (((uint32_t)gpio_input_bit_get(GPIOA, GPIO_PIN(1))) << 17);
 
     return col_data;
 }
