@@ -124,7 +124,7 @@ void handle_input_data(uint8_t row_inx, uint16_t gpio_input_data)
     if (gpio_input_data != gs_input_key_buffer[row_inx - 1])
     {
         //  消抖
-        delay_ms(30);
+        delay_ms(5);
         if ((gpio_input_data ^ get_col_data()) == 0xffff)
         {
             gs_input_key_buffer[row_inx - ROW_OFFSET] = gpio_input_data;
