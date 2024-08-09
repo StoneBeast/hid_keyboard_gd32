@@ -122,18 +122,6 @@
 
 /* 行数的偏移，理想的情况下扫描应该由GPIOA0开始，但是由于电路限制，由GPIOA3开始，为了方便理解，这里设置偏移量 */
 #define ROW_OFFSET 3
-#define FN_KEY_COUNT 10
-
-#define KEY_F10 0x43
-#define KEY_F11 0x44
-#define KEY_F12 0x45
-#define KEY_PRT_SC 0x46
-#define KEY_INS 0x49
-#define KEY_DEL 0x4c
-#define KEY_UA 0x52
-#define KEY_DA 0x51
-#define KEY_LA 0x50
-#define KEY_RA 0x4f
 
 void scan_keyboard(void);
 
