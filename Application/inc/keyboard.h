@@ -119,6 +119,8 @@
 
 #define MX_ROW_COUNT 7
 #define MX_COL_COUNT 16
+
+/* 行数的偏移，理想的情况下扫描应该由GPIOA0开始，但是由于电路限制，由GPIOA3开始，为了方便理解，这里设置偏移量 */
 #define ROW_OFFSET 3
 #define FN_KEY_COUNT 10
 
