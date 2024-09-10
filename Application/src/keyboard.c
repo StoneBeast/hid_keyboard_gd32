@@ -150,7 +150,7 @@ void handle_input_data(uint8_t row_inx, uint32_t gpio_input_data)
     if ((gpio_input_data ^ gs_input_key_buffer[row_inx - ROW_OFFSET]) != 0x0u)
     {
         //  消抖
-        delay_ms(50);
+        delay_ms(3);
 
         //  消抖之后得到的结果相同
         if ((gpio_input_data ^ get_col_data()) == 0x00000000)
