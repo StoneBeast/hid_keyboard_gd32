@@ -114,15 +114,15 @@ void scan_keyboard(void)
 
         if ((gs_ghosting_flag == FALSE) && (buffer_cmp(gs_temp_key_buffer.buffer) == 0))
         {
-            memcpy(get_key_buffer(), gs_temp_key_buffer.buffer, 8);
+            memcpy(get_key_buffer(), gs_temp_key_buffer.buffer, BUFFER_SIZE);
 
             if ((gs_fn_key_flag && (gs_temp_key_buffer.key_count == 2)))
             {
-                usbd_hid_report_send(&usbhs_core_dev, get_key_buffer(), 4U, EP2_IN);
+                usbd_hid_report_send(&usbhs_core_dev, get_key_buffer(), USB_HID_FN_REPORT_SIZE, EP2_IN);
             }
             else
             {
-                usbd_hid_report_send(&usbhs_core_dev, get_key_buffer(), 8U, EP1_IN);
+                usbd_hid_report_send(&usbhs_core_dev, get_key_buffer(), USB_HID_KEYBOARD_REPORT_SIZE, EP1_IN);
             }
         }
 
