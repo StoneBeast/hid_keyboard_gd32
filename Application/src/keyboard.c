@@ -47,11 +47,14 @@ static uint8_t fn_key[FN_KEY_COUNT] = {
     KEY_RA,
 };
 
+static uint8_t empty_key_buffer[BUFFER_SIZE] = {0};
+static uint8_t empty_fn_code_buffer[USB_HID_FN_REPORT_SIZE] = {2, 0};
+
 //  ghosting flag, if there is a ghost key, it will be TURE
 static volatile bool gs_ghosting_flag = FALSE;
 //  if `fn` key be passed, it will be TURE
 static volatile bool gs_fn_key_flag = FALSE;
-
+static volatile bool gs_fn_key_last_flag = FALSE;
 typedef struct
 {
     uint8_t buffer[BUFFER_SIZE];    //  input key buffer
@@ -91,6 +94,7 @@ void scan_keyboard(void)
     {
         uint32_t col_data = 0x00000000;
         gs_ghosting_flag = FALSE;
+        gs_fn_key_last_flag = gs_fn_key_flag;
         gs_fn_key_flag = FALSE;
 
         /*
@@ -116,13 +120,20 @@ void scan_keyboard(void)
         {
             memcpy(get_key_buffer(), gs_temp_key_buffer.buffer, BUFFER_SIZE);
 
-            if ((gs_fn_key_flag && (gs_temp_key_buffer.key_count == 2)))
+            if ((gs_fn_key_flag && (gs_temp_key_buffer.key_count == USB_HID_FN_REPORT_SIZE)))
             {
                 usbd_hid_report_send(&usbhs_core_dev, get_key_buffer(), USB_HID_FN_REPORT_SIZE, EP2_IN);
             }
             else
             {
-                usbd_hid_report_send(&usbhs_core_dev, get_key_buffer(), USB_HID_KEYBOARD_REPORT_SIZE, EP1_IN);
+                if ((memcmp(get_key_buffer(), empty_key_buffer, BUFFER_SIZE) == 0) && gs_fn_key_last_flag == TRUE)
+                {
+                    usbd_hid_report_send(&usbhs_core_dev, empty_fn_code_buffer, USB_HID_FN_REPORT_SIZE, EP2_IN);
+                }
+                else
+                {
+                    usbd_hid_report_send(&usbhs_core_dev, get_key_buffer(), USB_HID_KEYBOARD_REPORT_SIZE, EP1_IN);
+                }
             }
         }
 
