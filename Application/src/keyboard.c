@@ -38,8 +38,8 @@ static uint8_t fn_key[FN_KEY_COUNT] = {
     KEY_F10,
     KEY_F11,
     KEY_F12,
-    KEY_PRT_SC,
     KEY_DEL,
+    KEY_PRT_SC,
     KEY_INS,
     KEY_UA,
     KEY_DA,
@@ -337,7 +337,7 @@ static void handle_fn_key(void)
             memset(gs_temp_key_buffer.buffer, 0, BUFFER_SIZE);
 
             //  发送特殊报文
-            if (temp_key_p < 5)
+            if (temp_key_p < KEY_PRT_SC)
             {
                 gs_temp_key_buffer.key_count = 2;
                 gs_temp_key_buffer.normal_key_count = 2;
@@ -353,6 +353,9 @@ static void handle_fn_key(void)
                 gs_temp_key_buffer.buffer[1] = 0x00;
                 switch (fn_key[temp_key_p])
                 {
+                case KEY_PRT_SC:
+                    gs_temp_key_buffer.buffer[2] = 0x9a;
+                    break;
                 case KEY_INS:
                     gs_temp_key_buffer.buffer[2] = 0x47;
                     break;

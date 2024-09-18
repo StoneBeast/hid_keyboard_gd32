@@ -228,23 +228,22 @@ __ALIGN_BEGIN uint8_t hid_fn_report_desc[USB_HID_FN_REPORT_DESC_SIZE] __ALIGN_EN
         0xa1, 0x01,                   // COLLECTION (Application)
         0x85, 0x02,                   //   Report ID (2)
         0x75, 0x01,                   //   REPORT_SIZE (1)
-        0x95, 0x03,                   //   REPORT_COUNT (3)
+        0x95, 0x03,                   //   REPORT_COUNT (4)
         0x05, 0x0c,                   //   USAGE_PAGE (Consumer Devices)
         0x09, 0xea,                   //   USAGE (Volume Down)
         0x09, 0xe9,                   //   USAGE (Volume Up)
         0x09, 0xe2,                   //   USAGE (Mute)
-        0x0B, 0x11, 0x00, 0x09, 0x00, //   Usage (0x090011)
-        0x0A, 0xCD, 0x00,             //   Usage (Play/Pause)
+        0x09, 0xCD,                   //   Usage (Play/Pause)
         0x15, 0x00,                   //   LOGICAL_MINIMUM (0)
         0x25, 0x01,                   //   LOGICAL_MAXIMUM (1)
         0x81, 0x02,                   //   INPUT (Data,Var,Abs)
 
-        0x95, 0x05,                   //   REPORT_COUNT (5)
+        0x95, 0x05,                   //   REPORT_COUNT (4)
         0x75, 0x01,                   //   REPORT_SIZE (1)
         0x81, 0x01,                   //   INPUT (Cnst,Ary,Abs)
         0xc0                          // END_COLLECTION
 
-        // 41 bytes
+        // 35 bytes
 };
 
 /*!
