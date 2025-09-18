@@ -411,7 +411,7 @@ uint8_t  usbd_hid_data_handler (void *pudev, usb_dir_enum rx_tx, uint8_t ep_id)
 		else if ((USB_RX == rx_tx) && ((0x00 & 0x7fU) == ep_id))
 		{
 			//	handle led
-			led_handler(usbd_hid_report_buffer[1]);
+			led_handler(usbd_hid_report_buffer[0]);
 			return USBD_OK;
 		}
 
