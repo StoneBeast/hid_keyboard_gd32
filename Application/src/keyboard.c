@@ -143,6 +143,10 @@ void scan_keyboard(void)
                 else
                 {
                     usbd_hid_report_send(&usbhs_core_dev, get_key_buffer(), USB_HID_KEYBOARD_REPORT_SIZE, EP1_IN);
+                    if ((memcmp(get_key_buffer(), empty_key_buffer, BUFFER_SIZE) == 0)) {
+                        delay_ms(3);
+                        usbd_hid_report_send(&usbhs_core_dev, get_key_buffer(), USB_HID_KEYBOARD_REPORT_SIZE, EP1_IN);
+                    }
                 }
             }
         }
@@ -216,6 +220,7 @@ void handle_input_data(uint8_t row_inx, uint32_t gpio_input_data)
 */
 static void handle_original_code(uint8_t row_code, uint8_t col_code)
 {
+    uint8_t pushed = 0;
     if (is_ghosting(row_code - ROW_OFFSET, col_code) == FALSE)
     {
         gs_mx_input_key_buffer[row_code - ROW_OFFSET][col_code] = 1;
@@ -235,7 +240,21 @@ static void handle_original_code(uint8_t row_code, uint8_t col_code)
         }
         else
         {
-            gs_temp_key_buffer.buffer[gs_temp_key_buffer.normal_key_count + 2] = key_code;
+            pushed = find_buffer(get_key_buffer(), key_code);
+            /* 如果上次扫描按下的按键这次仍然按下，把它放在原位 */
+            if (pushed != 0) {
+                gs_temp_key_buffer.buffer[pushed] = key_code;
+            } else {
+                for (pushed = 2; pushed < 6; pushed++)
+                {
+                    if (gs_temp_key_buffer.buffer[pushed] == 0x00) {
+                        gs_temp_key_buffer.buffer[pushed] = key_code;
+                        break;
+                    }
+                }
+                
+            }
+            // gs_temp_key_buffer.buffer[gs_temp_key_buffer.normal_key_count + 2] = key_code;
             gs_temp_key_buffer.normal_key_count += 1;
         }
         gs_temp_key_buffer.key_count++;
