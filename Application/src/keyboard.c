@@ -6,14 +6,16 @@
 
 //  real position of a key in keyboard, and item value is a index of keycode in gs_phy_to_keycode[144]
 static uint8_t gs_phy_mx[MX_ROW_COUNT][MX_COL_COUNT] = {
-    {2, 3, 4, 5, 8, 9, 10, 81, 86, 0, 0, 0, 121, 11, 124, 116, 0, 0},
-    {1, 112, 113, 6, 7, 13, 119, 80, 85, 75, 76, 0, 120, 12, 0, 58, 0, 0},
-    {131, 132, 133, 50, 51, 56, 129, 79, 105, 89, 84, 0, 123, 55, 62, 0, 0, 0},
-    {46, 47, 48, 49, 52, 53, 54, 0, 100, 95, 90, 0, 43, 42, 0, 64, 0, 0},
-    {110, 45, 115, 35, 36, 117, 0, 83, 104, 99, 61, 0, 122, 41, 60, 0, 0, 0},
-    {31, 32, 33, 34, 37, 38, 39, 108, 103, 98, 93, 57, 29, 40, 59, 0, 0, 128},
+    
+    {17, 18, 19, 20, 23, 24, 25, 106, 101, 96, 91, 0, 14, 26, 125, 126, 0, 0},
     {16, 30, 114, 21, 22, 28, 118, 107, 102, 97, 92, 44, 15, 27, 0, 0, 127, 0},
-    {17, 18, 19, 20, 23, 24, 25, 106, 101, 96, 91, 0, 14, 26, 125, 126, 0, 0}};
+    {31, 32, 33, 34, 37, 38, 39, 108, 103, 98, 93, 57, 29, 40, 59, 0, 0, 128},
+    {110, 45, 115, 35, 36, 117, 0, 83, 104, 99, 61, 0, 122, 41, 60, 0, 0, 0},
+    {46, 47, 48, 49, 52, 53, 54, 0, 100, 95, 90, 0, 43, 42, 0, 64, 0, 0},
+    {131, 132, 133, 50, 51, 56, 129, 79, 105, 89, 84, 0, 123, 55, 62, 0, 0, 0},
+    {1, 112, 113, 6, 7, 13, 119, 80, 85, 75, 76, 0, 120, 12, 0, 58, 0, 0},
+    {2, 3, 4, 5, 8, 9, 10, 81, 86, 0, 0, 0, 121, 11, 124, 116, 0, 0},
+};
 
 //  keycode
 static uint8_t gs_phy_to_keycode[144] = {
@@ -55,6 +57,8 @@ static volatile bool gs_ghosting_flag = FALSE;
 //  if `fn` key be passed, it will be TURE
 static volatile bool gs_fn_key_flag = FALSE;
 static volatile bool gs_fn_key_last_flag = FALSE;
+static volatile bool gs_fn_comn_key_flag = FALSE;
+static volatile bool gs_fn_comn_key_last_flag = FALSE;
 typedef struct
 {
     uint8_t buffer[BUFFER_SIZE];    //  input key buffer
@@ -95,7 +99,9 @@ void scan_keyboard(void)
         uint32_t col_data = 0x00000000;
         gs_ghosting_flag = FALSE;
         gs_fn_key_last_flag = gs_fn_key_flag;
+        gs_fn_comn_key_last_flag = gs_fn_comn_key_flag;
         gs_fn_key_flag = FALSE;
+        gs_fn_comn_key_flag = FALSE;
 
         /*
             这里增加判断，当本轮扫描出现冲突时，停止扫描以提高效率，但是每次循环
@@ -126,9 +132,13 @@ void scan_keyboard(void)
             }
             else
             {
-                if ((memcmp(get_key_buffer(), empty_key_buffer, BUFFER_SIZE) == 0) && gs_fn_key_last_flag == TRUE)
+                if ((memcmp(get_key_buffer(), empty_key_buffer, BUFFER_SIZE) == 0) && gs_fn_key_last_flag == TRUE && gs_fn_comn_key_last_flag == FALSE)
                 {
                     usbd_hid_report_send(&usbhs_core_dev, empty_fn_code_buffer, USB_HID_FN_REPORT_SIZE, EP2_IN);
+                }
+                else if((memcmp(get_key_buffer(), empty_key_buffer, BUFFER_SIZE) == 0) && gs_fn_comn_key_last_flag == TRUE)
+                {
+                    usbd_hid_report_send(&usbhs_core_dev, empty_key_buffer, USB_HID_KEYBOARD_REPORT_SIZE, EP1_IN);
                 }
                 else
                 {
@@ -337,7 +347,8 @@ static void handle_fn_key(void)
             memset(gs_temp_key_buffer.buffer, 0, BUFFER_SIZE);
 
             //  发送特殊报文
-            if (temp_key_p < KEY_PRT_SC)
+            // if (temp_key_p < KEY_PRT_SC)
+            if (temp_key_p < 4)
             {
                 gs_temp_key_buffer.key_count = 2;
                 gs_temp_key_buffer.normal_key_count = 2;
@@ -347,6 +358,7 @@ static void handle_fn_key(void)
             //  发送普通键码
             else
             {
+                gs_fn_comn_key_flag = TRUE;
                 gs_temp_key_buffer.key_count = 1;
                 gs_temp_key_buffer.normal_key_count = 1;
                 gs_temp_key_buffer.buffer[0] = 0x00;
