@@ -228,8 +228,11 @@ __ALIGN_BEGIN uint8_t hid_fn_report_desc[USB_HID_FN_REPORT_DESC_SIZE] __ALIGN_EN
         0xa1, 0x01,                   // COLLECTION (Application)
         0x85, 0x02,                   //   Report ID (2)
         0x75, 0x01,                   //   REPORT_SIZE (1)
-        0x95, 0x03,                   //   REPORT_COUNT (4)
+        /* 使用的位，以 */
+        0x95, 0x06,                   //   REPORT_COUNT (6)
         0x05, 0x0c,                   //   USAGE_PAGE (Consumer Devices)
+        0x09, 0x6f,                   //   USAGE (Brightness Increment)
+        0x09, 0x70,                   //   USAGE (Brightness Decrement)
         0x09, 0xea,                   //   USAGE (Volume Down)
         0x09, 0xe9,                   //   USAGE (Volume Up)
         0x09, 0xe2,                   //   USAGE (Mute)
@@ -238,7 +241,8 @@ __ALIGN_BEGIN uint8_t hid_fn_report_desc[USB_HID_FN_REPORT_DESC_SIZE] __ALIGN_EN
         0x25, 0x01,                   //   LOGICAL_MAXIMUM (1)
         0x81, 0x02,                   //   INPUT (Data,Var,Abs)
 
-        0x95, 0x05,                   //   REPORT_COUNT (4)
+        /* 未使用的位 */
+        0x95, 0x02,                   //   REPORT_COUNT (2)
         0x75, 0x01,                   //   REPORT_SIZE (1)
         0x81, 0x01,                   //   INPUT (Cnst,Ary,Abs)
         0xc0                          // END_COLLECTION

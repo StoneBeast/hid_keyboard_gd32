@@ -37,6 +37,8 @@ static uint8_t gs_phy_to_keycode[144] = {
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
 static uint8_t fn_key[FN_KEY_COUNT] = {
+    KEY_F1,
+    KEY_F2,
     KEY_F10,
     KEY_F11,
     KEY_F12,
@@ -342,13 +344,13 @@ static void handle_fn_key(void)
             }
         }
 
-        if ((temp_key != 0xfe) && (temp_key_p != 11))
+        if ((temp_key != 0xfe) && (temp_key_p != 13))
         {
             memset(gs_temp_key_buffer.buffer, 0, BUFFER_SIZE);
 
             //  发送特殊报文
             // if (temp_key_p < KEY_PRT_SC)
-            if (temp_key_p < 4)
+            if (temp_key_p < 6)
             {
                 gs_temp_key_buffer.key_count = 2;
                 gs_temp_key_buffer.normal_key_count = 2;
