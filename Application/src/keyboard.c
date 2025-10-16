@@ -242,7 +242,7 @@ static void handle_original_code(uint8_t row_code, uint8_t col_code)
         {
             pushed = find_buffer(get_key_buffer(), key_code);
             /* 如果上次扫描按下的按键这次仍然按下，把它放在原位 */
-            if (pushed != 0) {
+            if (pushed != 0 && gs_temp_key_buffer.buffer[pushed] == 0x00) {
                 gs_temp_key_buffer.buffer[pushed] = key_code;
             } else {
                 for (pushed = 2; pushed < 6; pushed++)
