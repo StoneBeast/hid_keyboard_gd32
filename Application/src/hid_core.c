@@ -231,8 +231,8 @@ __ALIGN_BEGIN uint8_t hid_fn_report_desc[USB_HID_FN_REPORT_DESC_SIZE] __ALIGN_EN
         /* 使用的位，以 */
         0x95, 0x06,                   //   REPORT_COUNT (6)
         0x05, 0x0c,                   //   USAGE_PAGE (Consumer Devices)
-        0x09, 0x6f,                   //   USAGE (Brightness Increment)
         0x09, 0x70,                   //   USAGE (Brightness Decrement)
+        0x09, 0x6f,                   //   USAGE (Brightness Increment)
         0x09, 0xea,                   //   USAGE (Volume Down)
         0x09, 0xe9,                   //   USAGE (Volume Up)
         0x09, 0xe2,                   //   USAGE (Mute)
