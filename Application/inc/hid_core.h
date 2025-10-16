@@ -41,7 +41,7 @@ OF SUCH DAMAGE.
 #define USB_HID_CONFIG_DESC_SIZE        0x59
 #define USB_HID_DESC_SIZE               0x09
 #define USB_HID_REPORT_DESC_SIZE        64u
-#define USB_HID_FN_REPORT_DESC_SIZE     35u
+#define USB_HID_FN_REPORT_DESC_SIZE     39u
 
 #define USB_HID_KEYBOARD_REPORT_SIZE    8
 #define USB_HID_FN_REPORT_SIZE          2

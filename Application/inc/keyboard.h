@@ -10,8 +10,10 @@
 #define MX_ROW_COUNT 8      //  real row count in keyboard
 #define MX_COL_COUNT 18     //  real col count in keyboard
 #define ROW_OFFSET 2        //  keyboard row n == GPIOA_PIN(n-ROW_OFFSET)
-#define FN_KEY_COUNT 10
+#define FN_KEY_COUNT 12
 
+#define KEY_F1  0x3a
+#define KEY_F2  0x3b
 #define KEY_F10 0x43
 #define KEY_F11 0x44
 #define KEY_F12 0x45
