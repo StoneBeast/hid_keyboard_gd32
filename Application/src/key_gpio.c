@@ -9,14 +9,8 @@ void key_gpio_config(void)
 
     gpio_mode_set(
         GPIOA,
-        GPIO_MODE_OUTPUT,
+        GPIO_MODE_INPUT,
         GPIO_PUPD_NONE,
-        GPIO_PIN_2 | GPIO_PIN_3 | GPIO_PIN_4 | GPIO_PIN_5 | GPIO_PIN_6 | GPIO_PIN_7 | GPIO_PIN_8 | GPIO_PIN_9 | GPIO_PIN_10);
-
-    gpio_output_options_set(
-        GPIOA,
-        GPIO_OTYPE_PP,
-        GPIO_OSPEED_50MHZ,
         GPIO_PIN_2 | GPIO_PIN_3 | GPIO_PIN_4 | GPIO_PIN_5 | GPIO_PIN_6 | GPIO_PIN_7 | GPIO_PIN_8 | GPIO_PIN_9 | GPIO_PIN_10);
 
     gpio_mode_set(

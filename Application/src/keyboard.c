@@ -110,6 +110,8 @@ void scan_keyboard(void)
         for (uint8_t row_inx = ROW_OFFSET; row_inx < (ROW_OFFSET + MX_ROW_COUNT); row_inx++)
         {
             //  逐行扫描
+            gpio_mode_set(GPIOA, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO_PIN(row_inx));
+            gpio_output_options_set( GPIOA, GPIO_OTYPE_PP, GPIO_OSPEED_50MHZ, GPIO_PIN(row_inx));
             gpio_bit_set(GPIOA, GPIO_PIN(row_inx));
 
             //  获取当前的col输入
@@ -118,6 +120,7 @@ void scan_keyboard(void)
             handle_input_data(row_inx, col_data);
 
             gpio_bit_reset(GPIOA, GPIO_PIN(row_inx));
+            gpio_mode_set(GPIOA, GPIO_MODE_INPUT, GPIO_PUPD_NONE, GPIO_PIN(row_inx));
         }
 
         handle_fn_key();
