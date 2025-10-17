@@ -121,12 +121,10 @@ static void delay_time_set (uint8_t unit)
     if(TIM_USEC_DELAY == unit) {
         timer_initpara.period = 11;
     } else if(TIM_MSEC_DELAY == unit) {
-        // timer_initpara.period = 11999;
-        timer_initpara.period = 10799;
+        timer_initpara.period = 11999;
     }
     
-    // timer_initpara.prescaler         = timer_prescaler;
-    timer_initpara.prescaler         = 9;
+    timer_initpara.prescaler         = timer_prescaler;
     timer_initpara.alignedmode       = TIMER_COUNTER_EDGE;
     timer_initpara.counterdirection  = TIMER_COUNTER_UP;
     timer_initpara.clockdivision     = TIMER_CKDIV_DIV1;
@@ -134,8 +132,8 @@ static void delay_time_set (uint8_t unit)
     timer_init(TIMER0, &timer_initpara);
     
     timer_update_event_enable(TIMER0);
-    timer_flag_clear(TIMER0, TIMER_FLAG_UP);
     timer_interrupt_enable(TIMER0,TIMER_INT_UP);
+    timer_flag_clear(TIMER0, TIMER_FLAG_UP);
     timer_update_source_config(TIMER0, TIMER_UPDATE_SRC_GLOBAL);
   
     /* TIMER0 counter enable */

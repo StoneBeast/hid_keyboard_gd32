@@ -147,9 +147,11 @@ void scan_keyboard(void)
                 }
                 else
                 {
-                    usbd_hid_report_send(&usbhs_core_dev, get_key_buffer(), USB_HID_KEYBOARD_REPORT_SIZE, EP1_IN);
+                    
                     if ((memcmp(get_key_buffer(), empty_key_buffer, BUFFER_SIZE) == 0)) {
-                        delay_ms(3);
+                        delay_ms(20);
+                        usbd_hid_report_send(&usbhs_core_dev, empty_key_buffer, USB_HID_KEYBOARD_REPORT_SIZE, EP1_IN);
+                    } else {
                         usbd_hid_report_send(&usbhs_core_dev, get_key_buffer(), USB_HID_KEYBOARD_REPORT_SIZE, EP1_IN);
                     }
                 }
@@ -181,8 +183,9 @@ void handle_input_data(uint8_t row_inx, uint32_t gpio_input_data)
 
     if ((gpio_input_data ^ gs_input_key_buffer[row_inx - ROW_OFFSET]) != 0x0u)
     {
+        
         //  消抖
-        delay_ms(3);
+        delay_us(500);
 
         //  消抖之后得到的结果相同
         if ((gpio_input_data ^ get_col_data()) == 0x00000000)
