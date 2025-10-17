@@ -397,7 +397,7 @@ static void handle_fn_key(void)
 
             //  发送特殊报文
             // if (temp_key_p < KEY_PRT_SC)
-            if (temp_key_p < 6)
+            if (temp_key_p < 5)
             {
                 gs_temp_key_buffer.key_count = 2;
                 gs_temp_key_buffer.normal_key_count = 2;
@@ -414,6 +414,9 @@ static void handle_fn_key(void)
                 gs_temp_key_buffer.buffer[1] = 0x00;
                 switch (fn_key[temp_key_p])
                 {
+                case KEY_DEL:
+                    gs_temp_key_buffer.buffer[2] = 0x48;
+                    break;
                 case KEY_PRT_SC:
                     gs_temp_key_buffer.buffer[2] = 0x9a;
                     break;
