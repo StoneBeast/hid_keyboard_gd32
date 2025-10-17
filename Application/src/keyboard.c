@@ -4,6 +4,11 @@
 #include <stdio.h>
 #include <string.h>
 
+/* 
+    C1 - C18    R1
+                |
+                R8
+*/
 //  real position of a key in keyboard, and item value is a index of keycode in gs_phy_to_keycode[144]
 static uint8_t gs_phy_mx[MX_ROW_COUNT][MX_COL_COUNT] = {
     
@@ -68,22 +73,30 @@ typedef struct
     uint8_t normal_key_count;       //  all keys but `ctrl`,`shift` etc.
 } buffer_t;
 
+extern __IO uint8_t prev_transfer_complete;
 extern usb_core_handle_struct usbhs_core_dev;
 
 //  接收输入按键，用于验证合法性
 static uint8_t gs_mx_input_key_buffer[MX_ROW_COUNT][MX_COL_COUNT] = {0};
 static uint8_t gs_mx_input_key_buffer_count = 0;
 
-static uint32_t gs_input_key_buffer[MX_ROW_COUNT] = {0};
-
 //  作为实际发送的key buffer的缓冲
 static buffer_t gs_temp_key_buffer = {.buffer = {0}, .key_count = 0, .normal_key_count = 0};
 
-static void handle_input_data(uint8_t row_inx, uint32_t gpio_input_data);
-static void handle_original_code(uint8_t row_code, uint8_t col_code);
-static bool is_ghosting(uint8_t row_code, uint8_t col_code);
+static void handle_input_data(uint8_t row, uint32_t gpio_input_data);
+static void handle_original_code(uint8_t row_index, uint8_t col_index);
+// static bool is_ghosting(uint8_t row_code, uint8_t col_code);
+static bool is_ghosting_with_third_key(uint8_t new_row_inx, uint8_t new_col_inx);
 static uint32_t get_col_data(void);
 static void handle_fn_key(void);
+static void scan_row(uint8_t row);
+static void end_scan_row(uint8_t row);
+static bool check_rectangle_formation(uint8_t row1_inx, uint8_t col1_inx,
+                                        uint8_t row2_inx, uint8_t col2_inx,
+                                        uint8_t new_row_inx, uint8_t new_col_inx);
+static bool check_advanced_ghosting(uint8_t new_row_inx, uint8_t new_col_inx,
+                                    uint8_t active_rows[], uint8_t active_cols[]);
+static bool is_valid_key_position(uint8_t row_inx, uint8_t col_inx);
 
 /*!
     \brief      scan the keyboard matrix
@@ -98,74 +111,77 @@ void scan_keyboard(void)
 
     while (1)
     {
-        uint32_t col_data = 0x00000000;
-        gs_ghosting_flag = FALSE;
-        gs_fn_key_last_flag = gs_fn_key_flag;
-        gs_fn_comn_key_last_flag = gs_fn_comn_key_flag;
-        gs_fn_key_flag = FALSE;
-        gs_fn_comn_key_flag = FALSE;
-
-        /*
-            这里增加判断，当本轮扫描出现冲突时，停止扫描以提高效率，但是每次循环
-            开始前，会重置标志位，所以不影响下一次扫描
-        */
-        for (uint8_t row_inx = ROW_OFFSET; row_inx < (ROW_OFFSET + MX_ROW_COUNT); row_inx++)
-        {
-            //  逐行扫描
-            gpio_mode_set(GPIOA, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, GPIO_PIN(row_inx));
-            gpio_output_options_set( GPIOA, GPIO_OTYPE_PP, GPIO_OSPEED_50MHZ, GPIO_PIN(row_inx));
-            gpio_bit_set(GPIOA, GPIO_PIN(row_inx));
-
-            //  获取当前的col输入
-            col_data = get_col_data();
-            //  处理col data
-            handle_input_data(row_inx, col_data);
-
-            gpio_bit_reset(GPIOA, GPIO_PIN(row_inx));
-            gpio_mode_set(GPIOA, GPIO_MODE_INPUT, GPIO_PUPD_NONE, GPIO_PIN(row_inx));
-        }
-
-        handle_fn_key();
-
-        if ((gs_ghosting_flag == FALSE) && (buffer_cmp(gs_temp_key_buffer.buffer) == 0))
-        {
-            memcpy(get_key_buffer(), gs_temp_key_buffer.buffer, BUFFER_SIZE);
-
-            if ((gs_fn_key_flag && (gs_temp_key_buffer.key_count == USB_HID_FN_REPORT_SIZE)))
+        if (prev_transfer_complete == 1) {
+            uint32_t col_data = 0x00000000;
+            gs_ghosting_flag = FALSE;
+            gs_fn_key_last_flag = gs_fn_key_flag;
+            gs_fn_comn_key_last_flag = gs_fn_comn_key_flag;
+            gs_fn_key_flag = FALSE;
+            gs_fn_comn_key_flag = FALSE;
+    
+            /*
+                这里增加判断，当本轮扫描出现冲突时，停止扫描以提高效率，但是每次循环
+                开始前，会重置标志位，所以不影响下一次扫描
+            */  
+            for (uint8_t row = 1; row <= MX_ROW_COUNT; row++)
             {
-                usbd_hid_report_send(&usbhs_core_dev, get_key_buffer(), USB_HID_FN_REPORT_SIZE, EP2_IN);
+                //  逐行扫描
+                scan_row(row);
+    
+                GAP_DELAY();
+    
+                //  获取当前的col输入
+                col_data = get_col_data();
+                //  处理col data
+                handle_input_data(row, col_data);
+    
+                end_scan_row(row);
             }
-            else
+    
+            handle_fn_key();
+    
+            if ((gs_ghosting_flag == FALSE) && (buffer_cmp(gs_temp_key_buffer.buffer) == 0))
             {
-                if ((memcmp(get_key_buffer(), empty_key_buffer, BUFFER_SIZE) == 0) && gs_fn_key_last_flag == TRUE && gs_fn_comn_key_last_flag == FALSE)
+                memcpy(get_key_buffer(), gs_temp_key_buffer.buffer, BUFFER_SIZE);
+    
+                if ((gs_fn_key_flag && (gs_temp_key_buffer.key_count == USB_HID_FN_REPORT_SIZE)))
                 {
-                    usbd_hid_report_send(&usbhs_core_dev, empty_fn_code_buffer, USB_HID_FN_REPORT_SIZE, EP2_IN);
-                }
-                else if((memcmp(get_key_buffer(), empty_key_buffer, BUFFER_SIZE) == 0) && gs_fn_comn_key_last_flag == TRUE)
-                {
-                    usbd_hid_report_send(&usbhs_core_dev, empty_key_buffer, USB_HID_KEYBOARD_REPORT_SIZE, EP1_IN);
+                    usbd_hid_report_send(&usbhs_core_dev, get_key_buffer(), USB_HID_FN_REPORT_SIZE, EP2_IN);
                 }
                 else
                 {
-                    
-                    if ((memcmp(get_key_buffer(), empty_key_buffer, BUFFER_SIZE) == 0)) {
-                        delay_ms(20);
+                    if ((memcmp(get_key_buffer(), empty_key_buffer, BUFFER_SIZE) == 0) && gs_fn_key_last_flag == TRUE && gs_fn_comn_key_last_flag == FALSE)
+                    {
+                        usbd_hid_report_send(&usbhs_core_dev, empty_fn_code_buffer, USB_HID_FN_REPORT_SIZE, EP2_IN);
+                    }
+                    else if((memcmp(get_key_buffer(), empty_key_buffer, BUFFER_SIZE) == 0) && gs_fn_comn_key_last_flag == TRUE)
+                    {
                         usbd_hid_report_send(&usbhs_core_dev, empty_key_buffer, USB_HID_KEYBOARD_REPORT_SIZE, EP1_IN);
-                    } else {
+                    }
+                    else
+                    {
+                        // GAP_DELAY();
                         usbd_hid_report_send(&usbhs_core_dev, get_key_buffer(), USB_HID_KEYBOARD_REPORT_SIZE, EP1_IN);
+                        
+    //                    if ((memcmp(get_key_buffer(), empty_key_buffer, BUFFER_SIZE) == 0)) {
+    //                        delay_ms(20);
+    //                        usbd_hid_report_send(&usbhs_core_dev, empty_key_buffer, USB_HID_KEYBOARD_REPORT_SIZE, EP1_IN);
+    //                    } else {
+    //                        usbd_hid_report_send(&usbhs_core_dev, get_key_buffer(), USB_HID_KEYBOARD_REPORT_SIZE, EP1_IN);
+    //                    }
                     }
                 }
             }
+    
+    
+            memset(gs_mx_input_key_buffer, 0, sizeof(gs_mx_input_key_buffer));
+            gs_mx_input_key_buffer_count = 0;
+            
+            
+            memset(gs_temp_key_buffer.buffer, 0, BUFFER_SIZE);
+            gs_temp_key_buffer.key_count = 0;
+            gs_temp_key_buffer.normal_key_count = 0;
         }
-
-
-        memset(gs_mx_input_key_buffer, 0, sizeof(gs_mx_input_key_buffer));
-        gs_mx_input_key_buffer_count = 0;
-        
-        
-        memset(gs_temp_key_buffer.buffer, 0, BUFFER_SIZE);
-        gs_temp_key_buffer.key_count = 0;
-        gs_temp_key_buffer.normal_key_count = 0;
     }
 }
 
@@ -177,37 +193,16 @@ void scan_keyboard(void)
     \param[in]  gpio_input_data: col data, GPIOB_PIN_0 ... GPIOB_PIN_15 ... GPIOA_PIN_0, GPIOA_PIN_1
     \retval     none
 */
-void handle_input_data(uint8_t row_inx, uint32_t gpio_input_data)
+void handle_input_data(uint8_t row, uint32_t gpio_input_data)
 {
-    // gpio_input_data = ~gpio_input_data;
-
-    if ((gpio_input_data ^ gs_input_key_buffer[row_inx - ROW_OFFSET]) != 0x0u)
-    {
-        
-        //  消抖
-        delay_us(500);
-
-        //  消抖之后得到的结果相同
-        if ((gpio_input_data ^ get_col_data()) == 0x00000000)
-        {
-            gs_input_key_buffer[row_inx - ROW_OFFSET] = gpio_input_data;
-        }
-        else
-        {
-            gpio_input_data = gs_input_key_buffer[row_inx - ROW_OFFSET];
-        }
-    }
-
     if (gpio_input_data == 0x00000000)
-    {
         return;
-    }
 
     for (uint8_t col_inx = 0; col_inx < MX_COL_COUNT; col_inx++)
     {
         if ((gpio_input_data & 0x00000001u) == 0x00000001u)
         {
-            handle_original_code(row_inx, col_inx);
+            handle_original_code(ROW_COL_TO_INDEX(row), col_inx);
         }
 
         gpio_input_data >>= 1;
@@ -226,16 +221,16 @@ void handle_input_data(uint8_t row_inx, uint32_t gpio_input_data)
     \param[in]  col_code: index in GPIOA/GPIOB
     \retval     none
 */
-static void handle_original_code(uint8_t row_code, uint8_t col_code)
+static void handle_original_code(uint8_t row_index, uint8_t col_index)
 {
     uint8_t pushed = 0;
-    if (is_ghosting(row_code - ROW_OFFSET, col_code) == FALSE)
+    if (is_ghosting_with_third_key(row_index, col_index) == FALSE)
     {
-        gs_mx_input_key_buffer[row_code - ROW_OFFSET][col_code] = 1;
+        gs_mx_input_key_buffer[row_index][col_index] = 1;
         gs_mx_input_key_buffer_count++;
 
         /* 得出HID键码 */
-        uint8_t key_code = gs_phy_to_keycode[gs_phy_mx[row_code - ROW_OFFSET][col_code]];
+        uint8_t key_code = gs_phy_to_keycode[gs_phy_mx[row_index][col_index]];
         if (key_code == 0xff)
         {
             gs_fn_key_flag = TRUE;
@@ -273,61 +268,6 @@ static void handle_original_code(uint8_t row_code, uint8_t col_code)
     }
 }
 
-/*!
-    \brief      judge if ghost key be passed
-    \param[in]  row_code: real row index in physics keyboard
-    \param[in]  col_code: real col index in physics keyboard
-    \retval     TRUE/FALSE
-*/
-static bool is_ghosting(uint8_t row_code, uint8_t col_code)
-{
-    if (gs_mx_input_key_buffer_count < 2)
-    {
-        return FALSE;
-    }
-
-    if (gs_temp_key_buffer.key_count > 14 || gs_temp_key_buffer.normal_key_count > 6)
-    {
-        return TRUE;
-    }
-
-    //  判断是否有同列
-    for (uint8_t i = 0; i < row_code; i++)
-    {
-        if (gs_mx_input_key_buffer[i][col_code] == 1)
-        {
-            for (uint8_t j = 0; j < MX_COL_COUNT; j++)
-            {
-                if (j == col_code)
-                {
-                    continue;
-                }
-                if ((gs_mx_input_key_buffer[i][j] == 1) || (gs_mx_input_key_buffer[row_code][j] == 1))
-                {
-                    return TRUE;
-                }
-            }
-        }
-    }
-
-    //  判断是否有同行
-    for (uint8_t i = 0; i < col_code; i++)
-    {
-        if (gs_mx_input_key_buffer[row_code][i] == 1)
-        {
-            for (uint8_t j = 0; j < row_code; j++)
-            {
-                if ((gs_mx_input_key_buffer[j][i] == 1) || (gs_mx_input_key_buffer[j][col_code] == 1))
-                {
-                    return TRUE;
-                }
-            }
-        }
-    }
-
-    return FALSE;
-}
-
 /********************************************** 工具函数 **************************************************/
 
 /*!
@@ -337,10 +277,54 @@ static bool is_ghosting(uint8_t row_code, uint8_t col_code)
 */
 static uint32_t get_col_data(void)
 {
-    uint32_t col_data = gpio_input_port_get(GPIOB);
-    col_data |= (((uint32_t)gpio_input_bit_get(GPIOA, GPIO_PIN(0))) << 16);
-    col_data |= (((uint32_t)gpio_input_bit_get(GPIOA, GPIO_PIN(1))) << 17);
+    uint16_t col_i;
+    uint32_t col_data = 0;
+    uint32_t debounce_col_data = 0;
+    uint32_t arbitration_col_data = 0;
+    uint8_t temp_in = 0;
+    uint8_t temp_in2 = 0;
+    uint32_t port;
 
+    col_data = gpio_input_port_get(GPIOB);
+    col_data |= (((uint32_t)gpio_input_bit_get(GPIOA, COL_TO_PIN(17))) << 16);
+    col_data |= (((uint32_t)gpio_input_bit_get(GPIOA, COL_TO_PIN(18))) << 17);
+
+    /* 去抖 */
+    GAP_DELAY();
+    debounce_col_data = gpio_input_port_get(GPIOB);
+    debounce_col_data |= (((uint32_t)gpio_input_bit_get(GPIOA, COL_TO_PIN(17))) << 16);
+    debounce_col_data |= (((uint32_t)gpio_input_bit_get(GPIOA, COL_TO_PIN(18))) << 17);
+
+    /* 异或运算，相同则为0 */
+    arbitration_col_data = (col_data ^ debounce_col_data);
+
+    if (arbitration_col_data == 0)
+        return col_data;
+
+    for (col_i = 0; col_i < MX_COL_COUNT; col_i++)
+    {
+        /* 这一列不同，需要重复确认 */
+        if ((arbitration_col_data>>col_i)&0x01) {
+            if (INEDX_TO_ROW_COL(col_i) < 17) {
+                port = GPIOB;
+            } else {
+                port = GPIOA;
+            }
+
+CONFIRMED:
+            temp_in = gpio_input_bit_get(port, COL_TO_PIN(INEDX_TO_ROW_COL(col_i)));
+            GAP_DELAY();
+            temp_in2 = gpio_input_bit_get(port, COL_TO_PIN(INEDX_TO_ROW_COL(col_i)));
+            if (temp_in == temp_in2) {
+                col_data &= (~(1 << col_i));
+                if (temp_in2 == 1)
+                    col_data |= (1 << col_i);
+            } else {
+                goto CONFIRMED;
+            }
+        }
+    }
+    
     return col_data;
 }
 
@@ -425,6 +409,19 @@ static void handle_fn_key(void)
     }
 }
 
+static void scan_row(uint8_t row)
+{
+    gpio_mode_set(GPIOA, GPIO_MODE_OUTPUT, GPIO_PUPD_NONE, ROW_TO_PIN(row));
+    gpio_output_options_set( GPIOA, GPIO_OTYPE_PP, GPIO_OSPEED_50MHZ, ROW_TO_PIN(row));
+    gpio_bit_set(GPIOA, ROW_TO_PIN(row));
+}
+
+static void end_scan_row(uint8_t row)
+{
+    gpio_bit_reset(GPIOA, ROW_TO_PIN(row));
+    gpio_mode_set(GPIOA, GPIO_MODE_INPUT, GPIO_PUPD_NONE, ROW_TO_PIN(row));
+}
+
 /*!
     \brief      led handler
     \param[in]  led_data
@@ -438,4 +435,270 @@ void led_handler(uint8_t led_data)
      * PF7  caplk
      */
     handle_led_gpio(led_data);
+}
+
+// 在 matrix_keyboard.c 中添加以下实现
+
+/*!
+    \brief      防鬼键检测主函数
+    \param[in]  new_row: 新按键的行索引
+    \param[in]  new_col: 新按键的列索引
+    \retval     TRUE: 检测到鬼键，不应添加新按键
+                FALSE: 安全，可以添加新按键
+*/
+static bool is_ghosting_with_third_key(uint8_t new_row_inx, uint8_t new_col_inx)
+{
+    // 如果当前按键数小于2，不会产生鬼键
+    if (gs_mx_input_key_buffer_count < 2)
+    {
+        return FALSE;
+    }
+
+    // 如果已经检测到鬼键，直接返回
+    if (gs_ghosting_flag)
+    {
+        return TRUE;
+    }
+
+    // 收集所有已按下按键的位置信息
+    uint8_t active_rows[MX_ROW_COUNT] = {0};
+    uint8_t active_cols[MX_COL_COUNT] = {0};
+    uint8_t pressed_keys_count = 0;
+    uint8_t pressed_rows[MX_ROW_COUNT * MX_COL_COUNT] = {0};
+    uint8_t pressed_cols[MX_ROW_COUNT * MX_COL_COUNT] = {0};
+
+    // 统计已按下的按键
+    for (uint8_t row_inx = 0; row_inx < MX_ROW_COUNT; row_inx++)
+    {
+        for (uint8_t col_inx = 0; col_inx < MX_COL_COUNT; col_inx++)
+        {
+            if (gs_mx_input_key_buffer[row_inx][col_inx] == 1)
+            {
+                active_rows[row_inx]++;
+                active_cols[col_inx]++;
+                pressed_rows[pressed_keys_count] = row_inx;
+                pressed_cols[pressed_keys_count] = col_inx;
+                pressed_keys_count++;
+            }
+        }
+    }
+
+// 调试信息
+#ifdef DEBUG_GHOSTING
+    printf("Ghost check: new_key(%d,%d), total_keys=%d\n", new_row, new_col, pressed_keys_count);
+#endif
+
+    // 如果这是第三个按键，进行精确的矩形检测
+    if (pressed_keys_count == 2)
+    {
+        uint8_t row1 = pressed_rows[0];
+        uint8_t col1 = pressed_cols[0];
+        uint8_t row2 = pressed_rows[1];
+        uint8_t col2 = pressed_cols[1];
+
+        bool result = check_rectangle_formation(row1, col1, row2, col2, new_row_inx, new_col_inx);
+
+#ifdef DEBUG_GHOSTING
+        if (result)
+        {
+            printf("  -> Rectangle formation detected with keys: (%d,%d), (%d,%d), (%d,%d)\n",
+                   row1, col1, row2, col2, new_row, new_col);
+        }
+#endif
+
+        return result;
+    }
+
+    // 如果已有三个或更多按键，使用高级检测
+    if (pressed_keys_count >= 2)
+    {
+        bool result = check_advanced_ghosting(new_row_inx, new_col_inx, active_rows, active_cols);
+
+#ifdef DEBUG_GHOSTING
+        if (result)
+        {
+            printf("  -> Advanced ghosting detected\n");
+        }
+#endif
+
+        return result;
+    }
+
+    return FALSE;
+}
+
+/*!
+    \brief      检查三个按键是否形成矩形
+    \param[in]  row1, col1: 第一个按键位置
+    \param[in]  row2, col2: 第二个按键位置
+    \param[in]  new_row, new_col: 新按键位置
+    \retval     TRUE: 形成矩形，会产生鬼键
+                FALSE: 不会产生鬼键
+*/
+static bool check_rectangle_formation(uint8_t row1_inx, uint8_t col1_inx,
+                                        uint8_t row2_inx, uint8_t col2_inx,
+                                        uint8_t new_row_inx, uint8_t new_col_inx)
+{
+    // 情况1: 新按键与两个现有按键在同一行或同一列 - 安全
+    if ((new_row_inx == row1_inx && new_row_inx == row2_inx) ||
+        (new_col_inx == col1_inx && new_col_inx == col2_inx))
+    {
+        return FALSE;
+    }
+
+    // 情况2: 新按键与第一个按键同行，与第二个按键同列
+    if (new_row_inx == row1_inx && new_col_inx == col2_inx)
+    {
+        // 检查是否存在(row2, col1)这个位置（可能产生幽灵按键）
+        if (is_valid_key_position(row2_inx, col1_inx))
+        {
+#ifdef DEBUG_GHOSTING
+            printf("  -> Potential ghost at (%d,%d)\n", row2, col1);
+#endif
+            return TRUE; // 会产生鬼键
+        }
+    }
+
+    // 情况3: 新按键与第二个按键同行，与第一个按键同列
+    if (new_row_inx == row2_inx && new_col_inx == col1_inx)
+    {
+        // 检查是否存在(row1, col2)这个位置
+        if (is_valid_key_position(row1_inx, col2_inx))
+        {
+#ifdef DEBUG_GHOSTING
+            printf("  -> Potential ghost at (%d,%d)\n", row1, col2);
+#endif
+            return TRUE; // 会产生鬼键
+        }
+    }
+
+    // 情况4: 三个按键形成L型但不会产生鬼键
+    return FALSE;
+}
+
+/*!
+    \brief      高级鬼键检测（适用于多个按键）
+    \param[in]  new_row, new_col: 新按键位置
+    \param[in]  active_rows: 每行的激活按键数
+    \param[in]  active_cols: 每列的激活按键数
+    \retval     TRUE: 检测到鬼键
+                FALSE: 安全
+*/
+static bool check_advanced_ghosting(uint8_t new_row_inx, uint8_t new_col_inx,
+                                    uint8_t active_rows[], uint8_t active_cols[])
+{
+    // 统计多行多列情况
+    uint8_t multi_key_rows = 0;
+    uint8_t multi_key_cols = 0;
+
+    for (uint8_t i = 0; i < MX_ROW_COUNT; i++)
+    {
+        if (active_rows[i] > 1)
+            multi_key_rows++;
+    }
+    for (uint8_t i = 0; i < MX_COL_COUNT; i++)
+    {
+        if (active_cols[i] > 1)
+            multi_key_cols++;
+    }
+
+#ifdef DEBUG_GHOSTING
+    printf("  -> Multi-key rows: %d, cols: %d\n", multi_key_rows, multi_key_cols);
+#endif
+
+    // 如果新按键所在行和列都有多个按键，可能产生鬼键
+    if (active_rows[new_row_inx] > 1 && active_cols[new_col_inx] > 1)
+    {
+        // 检查是否形成矩形模式
+        for (uint8_t row_inx = 0; row_inx < MX_ROW_COUNT; row_inx++)
+        {
+            if (row_inx != new_row_inx && active_rows[row_inx] > 0)
+            {
+                for (uint8_t col_inx = 0; col_inx < MX_COL_COUNT; col_inx++)
+                {
+                    if (col_inx != new_col_inx && active_cols[col_inx] > 0)
+                    {
+                        // 如果(row, new_col)和(new_row, col)都存在按键，则形成矩形
+                        if (gs_mx_input_key_buffer[row_inx][new_col_inx] == 1 &&
+                            gs_mx_input_key_buffer[new_row_inx][col_inx] == 1)
+                        {
+#ifdef DEBUG_GHOSTING
+                            printf("  -> Rectangle formed with: (%d,%d), (%d,%d), (%d,%d), (%d,%d)\n",
+                                   row, new_col, new_row, col, row, col, new_row, new_col);
+#endif
+                            return TRUE;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // 如果有多于2行和2列同时有多个按键，严格检测
+    if (multi_key_rows >= 2 && multi_key_cols >= 2)
+    {
+#ifdef DEBUG_GHOSTING
+        printf("  -> Strict ghosting check triggered\n");
+#endif
+
+        // 在这种复杂情况下，保守策略：阻止添加新按键
+        // 除非能证明新按键不会产生鬼键
+        for (uint8_t row_inx = 0; row_inx < MX_ROW_COUNT; row_inx++)
+        {
+            if (active_rows[row_inx] > 0 && row_inx != new_row_inx)
+            {
+                for (uint8_t col_inx = 0; col_inx < MX_COL_COUNT; col_inx++)
+                {
+                    if (active_cols[col_inx] > 0 && col_inx != new_col_inx)
+                    {
+                        // 如果存在其他行和列的组合，可能产生鬼键
+                        if (gs_mx_input_key_buffer[row_inx][col_inx] == 1)
+                        {
+                            // 检查是否可能形成新的矩形
+                            if (gs_mx_input_key_buffer[row_inx][new_col_inx] == 1 ||
+                                gs_mx_input_key_buffer[new_row_inx][col_inx] == 1)
+                            {
+#ifdef DEBUG_GHOSTING
+                                printf("  -> Complex ghosting pattern detected\n");
+#endif
+                                return TRUE;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    return FALSE;
+}
+
+/*!
+    \brief      检查按键位置是否有效（在键盘矩阵中存在）
+    \param[in]  row, col: 要检查的位置
+    \retval     TRUE: 有效位置
+                FALSE: 无效位置
+*/
+static bool is_valid_key_position(uint8_t row_inx, uint8_t col_inx)
+{
+    // 检查是否在矩阵范围内
+    if (row_inx >= MX_ROW_COUNT || col_inx >= MX_COL_COUNT)
+    {
+        return FALSE;
+    }
+
+    // 检查该位置是否有实际按键（不是空键）
+    if (gs_phy_mx[row_inx][col_inx] == 0)
+    {
+        return FALSE;
+    }
+
+    // 检查对应的键码是否有效
+    uint8_t key_code = gs_phy_to_keycode[gs_phy_mx[row_inx][col_inx]];
+    if (key_code == 0x00)
+    {
+        return FALSE;
+    }
+
+    return TRUE;
 }
