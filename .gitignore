@@ -12,3 +12,7 @@ Firmware/*
 MDK-ARM/*
 Utilities/*
 !Utilities/debug_tools
+
+build
+.cmsis
+.eide
